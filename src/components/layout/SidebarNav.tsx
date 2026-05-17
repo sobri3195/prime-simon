@@ -2,7 +2,7 @@ import type * as React from 'react';
 import { Activity, Archive, BarChart3, Briefcase, Building2, ChevronLeft, ChevronRight, ClipboardList, CreditCard, Database, FileText, HandCoins, Home, Landmark, Package, ReceiptText, Settings, Stethoscope, Users } from 'lucide-react';
 import { Button } from '../ui/basic';
 
-export type NavItem = { id: string; label: string; icon: React.ComponentType<{ size?: number }>; group: string };
+export type NavItem = { id: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }>; group: string };
 export const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Overview', icon: Home, group: 'Dashboard' },
   { id: 'master-profile', label: 'Profil Klinik', icon: Database, group: 'Master Data' }, { id: 'master-doctors', label: 'Dokter', icon: Stethoscope, group: 'Master Data' }, { id: 'master-employees', label: 'Karyawan', icon: Users, group: 'Master Data' }, { id: 'master-vendors', label: 'Vendor', icon: Briefcase, group: 'Master Data' }, { id: 'master-payers', label: 'Payer / Asuransi', icon: Landmark, group: 'Master Data' }, { id: 'master-coa', label: 'COA', icon: ReceiptText, group: 'Master Data' }, { id: 'master-cost-center', label: 'Cost Center', icon: Building2, group: 'Master Data' }, { id: 'master-tax', label: 'Tarif Pajak', icon: Activity, group: 'Master Data' }, { id: 'master-service-category', label: 'Kategori Layanan', icon: Archive, group: 'Master Data' },
