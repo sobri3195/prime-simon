@@ -16,7 +16,7 @@ export function getNextRunningNumber(kind: DocumentKind, date = new Date()) {
 export function resetRunningNumbers() { localStorage.removeItem(storageKey); }
 export function generateDocumentNumber(kind: DocumentKind, date = new Date(), sequence?: number, opts: { category?: string; clinicCode?: string; financeCode?: string; style?: 'request'|'voucher'|'cash'|'payment' } = {}) {
   const seq = sequence ?? getNextRunningNumber(kind, date);
-  const m = getRomanMonth(date.getMonth() + 1), y = date.getFullYear(), clinic = opts.clinicCode || 'KUMPC', finance = opts.financeCode || 'KEU';
+  const m = getRomanMonth(date.getMonth() + 1), y = date.getFullYear(), clinic = opts.clinicCode || 'PK', finance = opts.financeCode || 'KEU';
   if (kind === 'MEDIS' || opts.category === 'MEDIS') return `${pad(seq, 3)}/MEDIS/${clinic}-${finance}/${m}/${y}`;
   if (kind === 'UMUM' || opts.category === 'UMUM') return `${pad(seq, 3)}/UMUM/${clinic}-${finance}/${m}/${y}`;
   if (opts.style === 'cash') return `${pad(seq, 3)}/${clinic}-${finance}/${kind}/${m}/${y}`;
