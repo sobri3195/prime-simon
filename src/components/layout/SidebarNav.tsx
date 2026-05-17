@@ -20,5 +20,42 @@ export const navItems: NavItem[] = [
 
 export function SidebarNav({ current, onNavigate, collapsed = false, onToggle }: { current: string; onNavigate: (id: string) => void; collapsed?: boolean; onToggle?: () => void }) {
   const groups = [...new Set(navItems.map(n => n.group))];
-  return <aside className={`sidebar fixed inset-y-0 left-0 z-30 hidden border-r border-slate-200 bg-white transition-all lg:block ${collapsed ? 'w-20' : 'w-72'}`}><div className="flex h-16 items-center gap-2 border-b px-4"><img src="/logo.svg" alt="KUMPC Finance logo" className="h-10 w-10 shrink-0 rounded-2xl shadow-sm" />{!collapsed && <div><p className="font-bold">KUMPC Finance</p><p className="text-xs text-slate-500">Operations suite</p></div>}<Button variant="ghost" className="ml-auto" onClick={onToggle}>{collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}</Button></div><nav className="h-[calc(100vh-4rem)] overflow-y-auto p-3">{groups.map(g => <div key={g} className="mb-3"><div className="mb-1 px-2 text-xs font-semibold uppercase text-slate-400">{collapsed ? '' : g}</div>{navItems.filter(n => n.group === g).map(n => { const Icon = n.icon; return <Button key={n.id} title={n.label} variant={current === n.id ? 'secondary' : 'ghost'} className={`mb-1 w-full ${collapsed ? 'justify-center px-2' : 'justify-start'} ${current === n.id ? 'text-blue-700' : ''}`} onClick={() => onNavigate(n.id)}><Icon size={16} />{!collapsed && n.label}</Button>; })}</div>)}</nav></aside>;
+  return (
+    <aside className={`sidebar fixed inset-y-0 left-0 z-30 hidden border-r border-slate-200/80 bg-white/95 shadow-sm shadow-slate-200/70 backdrop-blur transition-all lg:block ${collapsed ? 'w-20' : 'w-72'}`}>
+      <div className="flex h-16 items-center gap-3 border-b border-slate-200/80 px-4">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-blue-600 text-white shadow-sm shadow-blue-600/25">
+          <Landmark size={20} />
+        </div>
+        {!collapsed && <div className="min-w-0"><p className="truncate font-bold tracking-tight text-slate-950">KUMPC Finance</p><p className="text-xs font-medium text-slate-500">Operations suite</p></div>}
+        <Button variant="ghost" className="ml-auto h-9 w-9 px-0 text-slate-500 hover:bg-slate-100" aria-label={collapsed ? 'Buka sidebar' : 'Tutup sidebar'} onClick={onToggle}>{collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}</Button>
+      </div>
+      <nav className="h-[calc(100vh-4rem)] overflow-y-auto px-3 py-4 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent]" aria-label="Main navigation">
+        {groups.map(g => (
+          <div key={g} className="mb-4">
+            <div className="mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{collapsed ? '•' : g}</div>
+            <div className="space-y-1">
+              {navItems.filter(n => n.group === g).map(n => {
+                const Icon = n.icon;
+                const active = current === n.id;
+                return (
+                  <button
+                    key={n.id}
+                    title={n.label}
+                    type="button"
+                    aria-current={active ? 'page' : undefined}
+                    className={`group relative flex h-10 w-full items-center gap-3 rounded-xl px-3 text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${collapsed ? 'justify-center' : 'justify-start'} ${active ? 'bg-blue-50 font-semibold text-blue-700 shadow-sm ring-1 ring-blue-100' : 'font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-950'}`}
+                    onClick={() => onNavigate(n.id)}
+                  >
+                    {active && <span className="absolute left-0 top-2 h-6 w-1 rounded-r-full bg-blue-600" aria-hidden="true" />}
+                    <Icon size={17} className={active ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'} />
+                    {!collapsed && <span className="truncate">{n.label}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </nav>
+    </aside>
+  );
 }
