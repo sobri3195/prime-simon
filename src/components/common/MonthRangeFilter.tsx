@@ -1,0 +1,1 @@
+import { Input } from '../ui/basic';export function MonthRangeFilter({from,to,onFrom,onTo}:{from:string;to:string;onFrom:(v:string)=>void;onTo:(v:string)=>void}){return <><Input type="month" value={from} onChange={e=>onFrom(e.target.value)}/><Input type="month" value={to} onChange={e=>onTo(e.target.value)}/></>}

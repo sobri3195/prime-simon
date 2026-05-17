@@ -1,0 +1,1 @@
+import { Calendar } from '../ui/basic';export function DateRangeFilter({from,to,onFrom,onTo}:{from:string;to:string;onFrom:(v:string)=>void;onTo:(v:string)=>void}){return <><Calendar value={from} onChange={e=>onFrom(e.target.value)}/><Calendar value={to} onChange={e=>onTo(e.target.value)}/></>}
