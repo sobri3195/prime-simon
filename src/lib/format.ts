@@ -13,7 +13,7 @@ export function parseNumber(value: unknown): number {
 }
 
 export function safeString(value: unknown): string {
-  if (value === null || value === undefined) return '';
+  if (value === null || value === undefined || value === '') return '-';
   if (value instanceof Date) return isValid(value) ? value.toISOString() : '';
   if (typeof value === 'object') {
     try { return JSON.stringify(value); } catch { return String(value); }
@@ -29,10 +29,12 @@ export function toDate(value: string | Date): Date | null {
 }
 
 export function formatCurrency(value: number): string {
+  if (value === null || value === undefined || !Number.isFinite(parseNumber(value))) return '-';
   return `Rp ${new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(parseNumber(value))}`;
 }
 
 export function formatNumber(value: number): string {
+  if (value === null || value === undefined || !Number.isFinite(parseNumber(value))) return '-';
   return new Intl.NumberFormat('id-ID').format(parseNumber(value));
 }
 

@@ -15,7 +15,13 @@
     "zod": "latest",
     "tailwindcss": "latest",
     "@vitejs/plugin-react": "latest",
-    "@tailwindcss/vite": "latest"
+    "@tailwindcss/vite": "latest",
+    "@tanstack/react-table": "latest",
+    "jspdf": "latest",
+    "jspdf-autotable": "latest",
+    "xlsx": "latest",
+    "file-saver": "latest",
+    "sonner": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",
