@@ -13,38 +13,22 @@ export function AppLayout({ current, onNavigate, children, onReset, profile, set
 
   React.useEffect(() => applyPageSeo(title), [title]);
 
-  const handleNavigate = (id: string) => {
-    onNavigate(id);
-    setOpen(false);
-  };
-
   return (
-    <div className="app-shell min-h-screen overflow-x-hidden finance-grid">
+    <div className="app-shell min-h-screen bg-[#f4f8fb] finance-grid">
       <SidebarNav current={current} onNavigate={onNavigate} collapsed={collapsed} onToggle={() => setCollapsed(v => !v)} />
-      <Topbar title={title} onMenu={() => setOpen(true)} onReset={onReset} onNavigate={onNavigate} profile={profile} settings={settings} />
+      <Topbar title={title} onMenu={() => setOpen(true)} onReset={onReset} onNavigate={onNavigate} profile={profile} settings={settings} collapsed={collapsed} />
       <Dialog open={open}>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <b>Menu</b>
-            <p className="text-sm text-slate-500">Pilih modul laporan atau transaksi.</p>
-          </div>
-          <Button variant="ghost" onClick={() => setOpen(false)} aria-label="Tutup menu"><X size={16} /></Button>
+        <div className="mb-3 flex items-center justify-between">
+          <div><b>Menu</b><p className="text-sm text-slate-500">Pilih modul finance operations.</p></div>
+          <Button variant="ghost" aria-label="Tutup menu" onClick={() => setOpen(false)}><X size={16} /></Button>
         </div>
         <div className="lg:hidden">
-          <nav className="grid max-h-[72vh] gap-1 overflow-y-auto pr-1">
-            {navItems.map(n => {
-              const Icon = n.icon;
-              return (
-                <Button key={n.id} variant={current === n.id ? 'secondary' : 'ghost'} className="min-h-11 justify-start text-left" onClick={() => handleNavigate(n.id)}>
-                  <Icon size={16} className="shrink-0" />
-                  <span className="truncate">{n.group} - {n.label}</span>
-                </Button>
-              );
-            })}
+          <nav className="grid gap-1" aria-label="Mobile navigation">
+            {navItems.map(n => { const Icon = n.icon; return <Button key={n.id} variant={current === n.id ? 'secondary' : 'ghost'} className="justify-start" onClick={() => { onNavigate(n.id); setOpen(false); }}><Icon size={16} />{n.group} - {n.label}</Button>; })}
           </nav>
         </div>
       </Dialog>
-      <main className={`content-area min-w-0 p-3 transition-all sm:p-4 lg:p-6 ${collapsed ? 'lg:ml-20' : 'lg:ml-72'}`}>{children}</main>
+      <main className={`content-area min-h-screen p-4 pt-6 transition-all md:p-6 lg:p-8 lg:pt-24 ${collapsed ? 'lg:ml-20' : 'lg:ml-72'}`}>{children}</main>
     </div>
   );
 }

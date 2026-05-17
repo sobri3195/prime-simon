@@ -7,9 +7,7 @@ import { Button, Input, Badge, Dialog } from '../ui/basic';
 const monthName = (m: number) => new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(new Date(2026, m - 1, 1));
 const money = (n: number) => new Intl.NumberFormat('id-ID').format(n || 0);
 
-type SearchResult = { module: string; page: string; title: string; subtitle: string; date: string; amount: number; blob: string };
-
-export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings }: { title: string; onMenu: () => void; onReset: () => void; onNavigate: (id: string) => void; profile: ClinicProfile; settings: Settings }) {
+export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings, collapsed = false }: { title: string; onMenu: () => void; onReset: () => void; onNavigate: (id: string) => void; profile: ClinicProfile; settings: Settings; collapsed?: boolean }) {
   const [query, setQuery] = React.useState('');
   const [open, setOpen] = React.useState(false);
   const [actionsOpen, setActionsOpen] = React.useState(false);
@@ -23,16 +21,6 @@ export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings }
     const payroll = readStorage('payroll').map(r => ({ module: 'Payroll', page: 'payroll', title: r.id, subtitle: `${r.employeeId} • ${r.period}`, date: r.period, amount: r.takeHomePay, blob: JSON.stringify(r) }));
     return [...rev, ...req, ...vou, ...payroll].filter(r => r.blob.toLowerCase().includes(q)).slice(0, 12);
   }, [query]);
-
-  const handleReset = () => { resetDemoData(); onReset(); setActionsOpen(false); };
-  const handleExport = () => { quickExport(); setActionsOpen(false); };
-
-  const searchBox = (
-    <div className="relative w-full">
-      <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
-      <Input value={query} onChange={e => { setQuery(e.target.value); setOpen(e.target.value.length >= 2); }} onFocus={() => query.length >= 2 && setOpen(true)} placeholder="Cari global..." className="w-full pl-9" />
-    </div>
-  );
 
   return (
     <header className="topbar sticky top-0 z-20 border-b border-slate-200 bg-white/90 px-3 py-2 backdrop-blur sm:px-4 lg:ml-0">
@@ -52,40 +40,23 @@ export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings }
           <Button variant="outline" onClick={quickExport}><Download size={16} />Quick Export</Button>
           <Button variant="outline" onClick={() => { resetDemoData(); onReset(); }}><RotateCcw size={16} />Reset Demo</Button>
         </div>
-        <Button variant="outline" className="shrink-0 md:hidden" onClick={() => setActionsOpen(true)} aria-label="Buka aksi cepat"><MoreVertical size={18} /></Button>
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-2 md:hidden">
-        <Badge variant="outline" className="max-w-full truncate">Periode: {periodText}</Badge>
-        <Badge variant="green"><ShieldCheck size={13} /> Lokal</Badge>
+      <div className="hidden items-center gap-2 md:flex">
+        <Badge variant="outline" className="h-9 border-blue-100 bg-blue-50/70 px-3 text-blue-700">Periode aktif: {periodText}</Badge>
+        <Badge variant="green" className="h-9 border border-emerald-200 bg-emerald-50 px-3"><ShieldCheck size={13} /> Tersimpan lokal</Badge>
+        <div className="relative hidden xl:block">
+          <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+          <Input value={query} onChange={e => { setQuery(e.target.value); setOpen(e.target.value.length >= 2); }} onFocus={() => query.length >= 2 && setOpen(true)} placeholder="Cari global..." className="w-56 border-slate-200 bg-slate-50 pl-9 focus:bg-white" />
+        </div>
+        <Button variant="outline" className="h-10" onClick={quickExport}><Download size={16} />Quick Export</Button>
+        <Button variant="outline" className="h-10" onClick={() => { resetDemoData(); onReset(); }}><RotateCcw size={16} />Reset Demo</Button>
       </div>
-
-      <Dialog open={actionsOpen}>
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <b>Aksi Cepat</b>
-            <p className="text-sm text-slate-500">Cari data, export backup, atau reset demo.</p>
-          </div>
-          <Button variant="ghost" onClick={() => setActionsOpen(false)} aria-label="Tutup aksi cepat"><X size={16} /></Button>
-        </div>
-        <div className="space-y-3">
-          {searchBox}
-          <Button variant="outline" className="w-full justify-start" onClick={handleExport}><Download size={16} />Quick Export</Button>
-          <Button variant="outline" className="w-full justify-start" onClick={handleReset}><RotateCcw size={16} />Reset Demo</Button>
-        </div>
-      </Dialog>
-
       <Dialog open={open}>
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <b>Global Search</b>
-            <p className="text-sm text-slate-500">{results.length} hasil untuk “{query}”</p>
-          </div>
-          <Button variant="ghost" onClick={() => setOpen(false)} aria-label="Tutup pencarian"><X size={16} /></Button>
+        <div className="mb-4 flex items-center justify-between">
+          <div><b>Global Search</b><p className="text-sm text-slate-500">{results.length} hasil untuk “{query}”</p></div>
+          <Button variant="ghost" aria-label="Tutup pencarian" onClick={() => setOpen(false)}><X size={16} /></Button>
         </div>
-        <div className="space-y-2">
-          {results.map((r, i) => <div key={i} className="flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><Badge>{r.module}</Badge><p className="mt-1 truncate font-semibold">{r.title}</p><p className="truncate text-sm text-slate-500">{r.subtitle}</p><p className="text-xs text-slate-400">{r.date} • {money(r.amount)}</p></div><Button className="w-full sm:w-auto" onClick={() => { onNavigate(r.page); setOpen(false); setActionsOpen(false); }}>Buka</Button></div>)}
-          {results.length === 0 && <p className="text-sm text-slate-500">Ketik minimal 2 karakter untuk mencari dokumen, pasien, dokter, vendor, invoice, voucher, atau employee.</p>}
-        </div>
+        <div className="space-y-2">{results.map((r, i) => <div key={i} className="flex items-center justify-between rounded-xl border p-3"><div><Badge>{r.module}</Badge><p className="mt-1 font-semibold">{r.title}</p><p className="text-sm text-slate-500">{r.subtitle}</p><p className="text-xs text-slate-400">{r.date} • {money(r.amount)}</p></div><Button onClick={() => { onNavigate(r.page); setOpen(false); }}>Buka</Button></div>)}{results.length === 0 && <p className="text-sm text-slate-500">Ketik minimal 2 karakter untuk mencari dokumen, pasien, dokter, vendor, invoice, voucher, atau employee.</p>}</div>
       </Dialog>
     </header>
   );
