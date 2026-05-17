@@ -11,7 +11,7 @@ export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings, 
   const [query, setQuery] = React.useState('');
   const [open, setOpen] = React.useState(false);
   const [actionsOpen, setActionsOpen] = React.useState(false);
-  const quickExport = () => { const data = JSON.stringify(exportAllData(), null, 2); const blob = new Blob([data], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `kumpc-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url); };
+  const quickExport = () => { const data = JSON.stringify(exportAllData(), null, 2); const blob = new Blob([data], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `prime-klinik-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url); };
   const periodText = settings.activeDateFrom && settings.activeDateTo ? `${new Date(settings.activeDateFrom).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })} - ${new Date(settings.activeDateTo).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}` : `${monthName(settings.activeMonth ?? settings.defaultMonth)} ${settings.activeYear ?? settings.defaultYear}`;
   const results = React.useMemo(() => {
     const q = query.toLowerCase().trim(); if (q.length < 2) return [] as SearchResult[];
@@ -23,13 +23,22 @@ export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings, 
   }, [query]);
 
   return (
-    <header className={`topbar sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur transition-all lg:fixed lg:right-0 lg:px-6 ${collapsed ? 'lg:left-20' : 'lg:left-72'}`}>
-      <div className="flex min-w-0 items-center gap-3">
-        <Button variant="ghost" className="h-9 w-9 px-0 lg:hidden" aria-label="Buka menu" onClick={onMenu}><Menu size={18} /></Button>
-        <img src="/logo.svg" alt="KUMPC Finance logo" className="h-9 w-9 rounded-xl shadow-sm lg:hidden" />
-        <div className="min-w-0">
-          <p className="truncate text-xs font-medium uppercase tracking-wide text-slate-400">{profile.name}</p>
-          <h2 className="truncate font-semibold text-slate-900">{title}</h2>
+    <header className="topbar sticky top-0 z-20 border-b border-slate-200 bg-white/90 px-3 py-2 backdrop-blur sm:px-4 lg:ml-0">
+      <div className="flex min-h-12 items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <Button variant="ghost" className="shrink-0 lg:hidden" onClick={onMenu} aria-label="Buka menu"><Menu size={18} /></Button>
+          <img src="/logo.svg" alt="Prime Klinik logo" className="hidden h-9 w-9 shrink-0 rounded-xl shadow-sm sm:block lg:hidden" />
+          <div className="min-w-0">
+            <p className="truncate text-xs text-slate-500 sm:text-sm">{profile.name}</p>
+            <h2 className="truncate text-sm font-semibold text-slate-900 sm:text-base">{title}</h2>
+          </div>
+        </div>
+        <div className="hidden min-w-0 flex-1 items-center justify-end gap-2 md:flex">
+          <Badge variant="outline" className="max-w-[260px] truncate">Periode aktif: {periodText}</Badge>
+          <Badge variant="green"><ShieldCheck size={13} /> Tersimpan lokal</Badge>
+          <div className="w-52">{searchBox}</div>
+          <Button variant="outline" onClick={quickExport}><Download size={16} />Quick Export</Button>
+          <Button variant="outline" onClick={() => { resetDemoData(); onReset(); }}><RotateCcw size={16} />Reset Demo</Button>
         </div>
       </div>
       <div className="hidden items-center gap-2 md:flex">

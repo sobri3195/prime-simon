@@ -1,6 +1,6 @@
 export const seoConfig = {
-  appName: 'KUMPC Finance & Operations',
-  shortName: 'KUMPC Finance',
+  appName: 'Prime Klinik',
+  shortName: 'Prime Klinik',
   description:
     'Dashboard keuangan klinik untuk pendapatan, hutang-piutang, voucher, payroll, pajak, aset, rekonsiliasi, dan laporan manajemen.',
   image: '/og-image.svg',

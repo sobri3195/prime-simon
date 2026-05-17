@@ -2,7 +2,7 @@ import type { AppData, AuditEntry } from './types';
 import { createSeedData } from './seed';
 
 export const STORAGE_PREFIX = 'kum-fino-v1';
-export const appName = 'KUMPC Finance & Operations';
+export const appName = 'Prime Klinik';
 export const storageVersion = '1.0.0';
 export const storageKeys = ['clinic-profile','doctors','employees','vendors','payers','coa','revenue-transactions','doctor-fees','payment-requests','cash-requests','vouchers','cashier-daily-reports','ar-items','ap-items','inventory-items','inventory-movements','fixed-assets','tax-items','attendance','payroll','settings','ppn-ledger','audit-trail'] as const;
 export type StorageKey = typeof storageKeys[number];
