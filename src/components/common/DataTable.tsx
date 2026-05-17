@@ -125,13 +125,13 @@ function toExportColumns<T>(columns: DataTableColumn<T>[]): ExportColumn<T>[] {
 
 function Dropdown({ label, icon: Icon, children }: { label: string; icon: React.ComponentType<{ size?: number }>; children: React.ReactNode }) {
   return (
-    <details className="relative">
+    <details className="relative min-w-0">
       <summary className="list-none">
-        <Button type="button" variant="outline" className="cursor-pointer">
+        <Button type="button" variant="outline" className="w-full cursor-pointer sm:w-auto">
           <Icon size={16} /> {label} <ChevronDown size={14} />
         </Button>
       </summary>
-      <div className="absolute right-0 z-30 mt-2 min-w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+      <div className="absolute left-0 z-30 mt-2 min-w-56 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-1 shadow-lg sm:left-auto sm:right-0">
         {children}
       </div>
     </details>
@@ -258,7 +258,7 @@ export function DataTable<T extends Record<string, unknown> | object>({
       )}
       <CardContent className="space-y-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-1 items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-1 sm:items-center">
             {searchable && (
               <div className="relative w-full max-w-md">
                 <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
@@ -267,7 +267,7 @@ export function DataTable<T extends Record<string, unknown> | object>({
             )}
             <Badge variant="outline">{sortedRows.length} baris</Badge>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
             {enableExport && (
               <Dropdown label="Export" icon={Download}>
                 {enableCopy && <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50" onClick={() => void runExport('copy')}><Clipboard size={15} /> Copy Clipboard</button>}
@@ -288,7 +288,7 @@ export function DataTable<T extends Record<string, unknown> | object>({
               </Dropdown>
             )}
             {enablePagination && (
-              <Select value={String(currentPageSize)} onChange={(event) => setCurrentPageSize(Number(event.target.value))} className="w-28">
+              <Select value={String(currentPageSize)} onChange={(event) => setCurrentPageSize(Number(event.target.value))} className="w-full sm:w-28">
                 {[10, 25, 50, 100].map((size) => <option key={size} value={size}>{size}/hal</option>)}
               </Select>
             )}
@@ -298,7 +298,31 @@ export function DataTable<T extends Record<string, unknown> | object>({
         {pageRows.length === 0 ? (
           <EmptyState title={emptyMessage} />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <>
+            <div className="grid gap-3 md:hidden">
+              {pageRows.map((row, rowIndex) => (
+                <div
+                  key={(row as { id?: string | number }).id ?? rowIndex}
+                  role={onRowClick ? 'button' : undefined}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  onClick={() => onRowClick?.(row)}
+                  onKeyDown={(event) => { if (onRowClick && (event.key === 'Enter' || event.key === ' ')) onRowClick(row); }}
+                  className={cn('rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm', onRowClick && 'cursor-pointer active:bg-slate-50', getRowClassName?.(row))}
+                >
+                  <div className="space-y-2">
+                    {visibleColumns.map((column) => (
+                      <div key={String(column.key)} className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-3 border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{column.header}</span>
+                        <span className={cn('min-w-0 text-sm text-slate-800', (column.align === 'right' || column.isCurrency || column.isNumber) && 'text-right tabular-nums', column.align === 'center' && 'text-center')}>
+                          {formatDisplayValue(row, column)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
             <Table className="min-w-[900px] print-table">
               <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr>
@@ -335,16 +359,17 @@ export function DataTable<T extends Record<string, unknown> | object>({
                 </tfoot>
               )}
             </Table>
-          </div>
+            </div>
+          </>
         )}
 
         {enablePagination && (
           <div className="flex flex-col gap-2 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
             <span>Menampilkan {from}-{to} dari {sortedRows.length} data</span>
-            <div className="flex items-center justify-end gap-2">
-              <Button type="button" variant="outline" disabled={safePage <= 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}><ChevronLeft size={14} /> Previous</Button>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button type="button" variant="outline" className="flex-1 sm:flex-none" disabled={safePage <= 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}><ChevronLeft size={14} /> Previous</Button>
               <span>Halaman {safePage}/{pageCount}</span>
-              <Button type="button" variant="outline" disabled={safePage >= pageCount} onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))}>Next <ChevronRight size={14} /></Button>
+              <Button type="button" variant="outline" className="flex-1 sm:flex-none" disabled={safePage >= pageCount} onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))}>Next <ChevronRight size={14} /></Button>
             </div>
           </div>
         )}
