@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Download, Menu, RotateCcw, Search, ShieldCheck, X } from 'lucide-react';
+import { Download, Menu, MoreVertical, RotateCcw, Search, ShieldCheck, X } from 'lucide-react';
 import { exportAllData, readStorage, resetDemoData } from '@/lib/storage';
 import type { ClinicProfile, Settings } from '@/lib/types';
 import { Button, Input, Badge, Dialog } from '../ui/basic';
@@ -10,10 +10,11 @@ const money = (n: number) => new Intl.NumberFormat('id-ID').format(n || 0);
 export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings, collapsed = false }: { title: string; onMenu: () => void; onReset: () => void; onNavigate: (id: string) => void; profile: ClinicProfile; settings: Settings; collapsed?: boolean }) {
   const [query, setQuery] = React.useState('');
   const [open, setOpen] = React.useState(false);
+  const [actionsOpen, setActionsOpen] = React.useState(false);
   const quickExport = () => { const data = JSON.stringify(exportAllData(), null, 2); const blob = new Blob([data], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `kumpc-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url); };
   const periodText = settings.activeDateFrom && settings.activeDateTo ? `${new Date(settings.activeDateFrom).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })} - ${new Date(settings.activeDateTo).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}` : `${monthName(settings.activeMonth ?? settings.defaultMonth)} ${settings.activeYear ?? settings.defaultYear}`;
   const results = React.useMemo(() => {
-    const q = query.toLowerCase().trim(); if (q.length < 2) return [] as any[];
+    const q = query.toLowerCase().trim(); if (q.length < 2) return [] as SearchResult[];
     const rev = readStorage('revenue-transactions').map(r => ({ module: 'Pendapatan', page: 'revenue', title: r.receiptNo || r.invoiceNo, subtitle: `${r.patientName} • ${r.payerName}`, date: r.date, amount: r.netAmount, blob: JSON.stringify(r) }));
     const req = readStorage('payment-requests').map(r => ({ module: 'Pengajuan Vendor', page: 'payment-request', title: r.requestNo, subtitle: `${r.vendorId} • ${r.invoiceNo}`, date: r.requestDate, amount: r.amount, blob: JSON.stringify(r) }));
     const vou = readStorage('vouchers').map(r => ({ module: 'Voucher', page: 'voucher', title: r.voucherNo, subtitle: `${r.paidTo} • ${r.description}`, date: r.date, amount: r.amount, blob: JSON.stringify(r) }));

@@ -1,1 +1,1 @@
-import type * as React from 'react';import { Card } from '../ui/basic';export const FilterBar=({children}:{children:React.ReactNode})=><Card className="mb-4 flex flex-wrap gap-3 p-4">{children}</Card>;
+import type * as React from 'react';import { Card } from '../ui/basic';export const FilterBar=({children}:{children:React.ReactNode})=><Card className="mb-4 grid gap-3 p-4 sm:flex sm:flex-wrap">{children}</Card>;

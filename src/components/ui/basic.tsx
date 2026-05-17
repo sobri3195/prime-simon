@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 export const Card=({className,...p}:React.HTMLAttributes<HTMLDivElement>)=><div className={cn('rounded-2xl border border-slate-200 bg-white shadow-sm',className)} {...p}/>;
-export const CardHeader=({className,...p}:React.HTMLAttributes<HTMLDivElement>)=><div className={cn('p-5 pb-2',className)} {...p}/>;
+export const CardHeader=({className,...p}:React.HTMLAttributes<HTMLDivElement>)=><div className={cn('p-4 pb-2 sm:p-5 sm:pb-2',className)} {...p}/>;
 export const CardTitle=({className,...p}:React.HTMLAttributes<HTMLHeadingElement>)=><h3 className={cn('font-semibold tracking-tight text-slate-900',className)} {...p}/>;
 export const CardContent=({className,...p}:React.HTMLAttributes<HTMLDivElement>)=><div className={cn('p-5',className)} {...p}/>;
 export const Button=({className,variant='default',...p}:React.ButtonHTMLAttributes<HTMLButtonElement>&{variant?:'default'|'outline'|'ghost'|'destructive'|'secondary'})=><button className={cn('inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',variant==='default'&&'bg-blue-600 text-white hover:bg-blue-700',variant==='outline'&&'border border-slate-200 bg-white hover:bg-slate-50',variant==='ghost'&&'hover:bg-slate-100',variant==='destructive'&&'bg-red-600 text-white hover:bg-red-700',variant==='secondary'&&'bg-slate-100 text-slate-900 hover:bg-slate-200',className)} {...p}/>;
@@ -12,7 +12,7 @@ export const Badge=({className,variant='default',...p}:React.HTMLAttributes<HTML
 export const Tabs=({className,...p}:React.HTMLAttributes<HTMLDivElement>)=><div className={cn('',className)} {...p}/>;
 export const Separator=({className,...p}:React.HTMLAttributes<HTMLDivElement>)=><div className={cn('h-px bg-slate-200',className)} {...p}/>;
 export const Alert=({className,...p}:React.HTMLAttributes<HTMLDivElement>)=><div className={cn('rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900',className)} {...p}/>;
-export const Dialog=({open,children}:{open:boolean;children:React.ReactNode})=>open?<div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4"><div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white p-5 shadow-xl">{children}</div></div>:null;
+export const Dialog=({open,children}:{open:boolean;children:React.ReactNode})=>open?<div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/40 p-0 sm:place-items-center sm:p-4"><div className="max-h-[92vh] w-full overflow-auto rounded-t-2xl bg-white p-4 shadow-xl sm:max-w-2xl sm:rounded-2xl sm:p-5">{children}</div></div>:null;
 export const Sheet=Dialog;
 export const DropdownMenu=({children}: {children: React.ReactNode})=><div className="relative">{children}</div>;
 export const Calendar=({className,...p}:React.InputHTMLAttributes<HTMLInputElement>)=><Input type="date" className={className} {...p}/>;
