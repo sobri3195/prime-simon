@@ -47,7 +47,12 @@ export type DataTableProps<T> = {
   enablePagination?: boolean;
   enableSorting?: boolean;
   pageSize?: number;
+  loading?: boolean;
+  error?: string;
   emptyMessage?: string;
+  emptyDescription?: string;
+  emptyAction?: React.ReactNode;
+  toolbarFilters?: React.ReactNode;
   getRowClassName?: (row: T) => string;
   onRowClick?: (row: T) => void;
   onEdit?: (row: T) => void;
@@ -157,7 +162,12 @@ export function DataTable<T extends Record<string, unknown> | object>({
   enablePagination = true,
   enableSorting = true,
   pageSize = 10,
+  loading = false,
+  error,
   emptyMessage = 'Tidak ada data yang ditemukan.',
+  emptyDescription,
+  emptyAction,
+  toolbarFilters,
   getRowClassName,
   onRowClick,
   onEdit,
@@ -176,9 +186,9 @@ export function DataTable<T extends Record<string, unknown> | object>({
         enableSorting: false,
         align: 'right',
         accessor: (row: T) => (
-          <div className="flex justify-end gap-1">
-            {onEdit && <Button type="button" variant="ghost" onClick={(event) => { event.stopPropagation(); onEdit(row); }}><Pencil size={14} /></Button>}
-            {onDelete && <Button type="button" variant="ghost" onClick={(event) => { event.stopPropagation(); onDelete(row); }}><Trash2 size={14} /></Button>}
+          <div className="flex justify-end gap-1.5">
+            {onEdit && <Button type="button" variant="ghost" className="h-8 w-8 px-0 text-slate-500 hover:bg-blue-50 hover:text-blue-700" aria-label="Edit baris" onClick={(event) => { event.stopPropagation(); onEdit(row); }}><Pencil size={16} /></Button>}
+            {onDelete && <Button type="button" variant="ghost" className="h-8 w-8 px-0 text-slate-500 hover:bg-red-50 hover:text-red-600" aria-label="Hapus baris" onClick={(event) => { event.stopPropagation(); onDelete(row); }}><Trash2 size={16} /></Button>}
           </div>
         ),
       } satisfies DataTableColumn<T>,
@@ -249,23 +259,24 @@ export function DataTable<T extends Record<string, unknown> | object>({
   };
 
   return (
-    <Card>
+    <Card className="overflow-hidden shadow-sm shadow-slate-200/70">
       {(title || description) && (
         <CardHeader>
           {title && <CardTitle>{title}</CardTitle>}
           {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
         </CardHeader>
       )}
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-1 items-center gap-2">
+          <div className="flex flex-1 flex-col gap-2 md:flex-row md:items-center">
             {searchable && (
-              <div className="relative w-full max-w-md">
+              <div className="relative w-full max-w-xl">
                 <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
                 <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={searchPlaceholder} className="w-full pl-9" />
               </div>
             )}
-            <Badge variant="outline">{sortedRows.length} baris</Badge>
+            {toolbarFilters}
+            <Badge variant="outline" className="h-9 border-slate-200 bg-slate-50 px-3 text-slate-600">{sortedRows.length} baris</Badge>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             {enableExport && (
@@ -295,17 +306,25 @@ export function DataTable<T extends Record<string, unknown> | object>({
           </div>
         </div>
 
-        {pageRows.length === 0 ? (
-          <EmptyState title={emptyMessage} />
+        {error ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">{error}</div>
+        ) : loading ? (
+          <div className="overflow-hidden rounded-2xl border border-slate-200">
+            <div className="space-y-3 bg-white p-4">
+              {Array.from({ length: 6 }).map((_, index) => <div key={index} className="h-12 animate-pulse rounded-xl bg-slate-100" />)}
+            </div>
+          </div>
+        ) : pageRows.length === 0 ? (
+          <EmptyState title={emptyMessage} description={emptyDescription} action={emptyAction} />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
-            <Table className="min-w-[900px] print-table">
-              <thead className="sticky top-0 z-10 bg-slate-50">
+          <div className="overflow-x-auto rounded-2xl border border-slate-200">
+            <Table className="min-w-[980px] print-table">
+              <thead className="sticky top-0 z-10 bg-slate-50/95">
                 <tr>
                   {visibleColumns.map((column) => {
                     const active = sort?.key === String(column.key);
                     return (
-                      <th key={String(column.key)} onClick={() => handleSort(column)} className={cn('whitespace-nowrap px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600', enableSorting && column.enableSorting !== false && 'cursor-pointer select-none hover:bg-slate-100', (column.align === 'right' || column.isCurrency || column.isNumber) && 'text-right', column.align === 'center' && 'text-center', column.className)}>
+                      <th key={String(column.key)} onClick={() => handleSort(column)} className={cn('whitespace-nowrap px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wide text-slate-600', enableSorting && column.enableSorting !== false && 'cursor-pointer select-none hover:bg-slate-100', (column.align === 'right' || column.isCurrency || column.isNumber) && 'text-right', column.align === 'center' && 'text-center', column.className)}>
                         <span className="inline-flex items-center gap-1">{column.header}{active && <span>{sort?.direction === 'asc' ? '▲' : '▼'}</span>}</span>
                       </th>
                     );
@@ -314,9 +333,9 @@ export function DataTable<T extends Record<string, unknown> | object>({
               </thead>
               <tbody>
                 {pageRows.map((row, rowIndex) => (
-                  <tr key={(row as { id?: string | number }).id ?? rowIndex} onClick={() => onRowClick?.(row)} className={cn('border-t border-slate-100 hover:bg-slate-50', onRowClick && 'cursor-pointer', getRowClassName?.(row))}>
+                  <tr key={(row as { id?: string | number }).id ?? rowIndex} onClick={() => onRowClick?.(row)} className={cn('h-14 border-t border-slate-100 transition-colors hover:bg-blue-50/35', onRowClick && 'cursor-pointer', getRowClassName?.(row))}>
                     {visibleColumns.map((column) => (
-                      <td key={String(column.key)} className={cn('whitespace-nowrap px-3 py-3 text-sm text-slate-700', (column.align === 'right' || column.isCurrency || column.isNumber) && 'text-right tabular-nums', column.align === 'center' && 'text-center', column.className)}>
+                      <td key={String(column.key)} className={cn('whitespace-nowrap px-4 py-3 text-[13px] text-slate-700', (column.align === 'right' || column.isCurrency || column.isNumber) && 'text-right tabular-nums', column.align === 'center' && 'text-center', column.className)}>
                         {formatDisplayValue(row, column)}
                       </td>
                     ))}
@@ -324,11 +343,11 @@ export function DataTable<T extends Record<string, unknown> | object>({
                 ))}
               </tbody>
               {hasFooter && (
-                <tfoot className="border-t bg-slate-50 font-semibold text-slate-800">
+                <tfoot className="border-t border-slate-200 bg-blue-50/60 font-semibold text-slate-800">
                   <tr>
                     {visibleColumns.map((column, index) => (
-                      <td key={String(column.key)} className={cn('whitespace-nowrap px-3 py-3 text-sm', (column.align === 'right' || column.isCurrency || column.isNumber) && 'text-right tabular-nums', column.align === 'center' && 'text-center')}>
-                        {column.footer ? column.footer(sortedRows) : column.total ? column.total(sortedRows) : index === 0 ? 'Total' : ''}
+                      <td key={String(column.key)} className={cn('whitespace-nowrap px-4 py-4 text-sm', (column.align === 'right' || column.isCurrency || column.isNumber) && 'text-right tabular-nums', column.align === 'center' && 'text-center')}>
+                        {column.footer ? column.footer(sortedRows) : column.total ? column.total(sortedRows) : index === 0 ? <span className="font-bold text-slate-900">Total</span> : ''}
                       </td>
                     ))}
                   </tr>
@@ -339,11 +358,11 @@ export function DataTable<T extends Record<string, unknown> | object>({
         )}
 
         {enablePagination && (
-          <div className="flex flex-col gap-2 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-            <span>Menampilkan {from}-{to} dari {sortedRows.length} data</span>
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+            <span>Menampilkan {from}–{to} dari {sortedRows.length}</span>
             <div className="flex items-center justify-end gap-2">
               <Button type="button" variant="outline" disabled={safePage <= 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}><ChevronLeft size={14} /> Previous</Button>
-              <span>Halaman {safePage}/{pageCount}</span>
+              <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-semibold text-slate-700">{safePage}/{pageCount}</span>
               <Button type="button" variant="outline" disabled={safePage >= pageCount} onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))}>Next <ChevronRight size={14} /></Button>
             </div>
           </div>
