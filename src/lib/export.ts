@@ -140,24 +140,22 @@ function zip(files: Record<string, string>) {
   return new Blob([concat([...locals, centralDir, end])], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
-export function exportToExcel<T>(params: { filename: string; rows: T[]; columns: ExportColumn<T>[]; sheetName?: string; includeFooter?: boolean }): void {
+export function exportToExcel<T>(params: { filename: string; rows: T[]; columns: ExportColumn<T>[]; sheetName?: string; includeFooter?: boolean; meta?: Record<string, unknown> }): void {
   const prepared = prepareExportRows(params);
-  const rows = [prepared.headers, ...prepared.body, ...(prepared.footer ? [prepared.footer] : [])];
-  const widths = prepared.headers.map((_, col) => Math.min(45, Math.max(10, ...rows.map((row) => safeString(row[col]).length + 2))));
-  const sheetData = rows.map((row, r) => `<row r="${r + 1}">${row.map((cell, c) => {
-    const ref = `${colName(c)}${r + 1}`;
-    if (typeof cell === 'number') return `<c r="${ref}"${r === 0 || (prepared.footer && r === rows.length - 1) ? ' s="1"' : ''}><v>${cell}</v></c>`;
-    return `<c r="${ref}" t="inlineStr"${r === 0 || (prepared.footer && r === rows.length - 1) ? ' s="1"' : ''}><is><t>${xmlEscape(cell)}</t></is></c>`;
-  }).join('')}</row>`).join('');
-  const files = {
-    '[Content_Types].xml': '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>',
-    '_rels/.rels': '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
-    'xl/_rels/workbook.xml.rels': '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>',
-    'xl/workbook.xml': `<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${xmlEscape((params.sheetName || 'Data').slice(0, 31))}" sheetId="1" r:id="rId1"/></sheets></workbook>`,
-    'xl/styles.xml': '<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font/><font><b/></font></fonts><fills count="1"><fill><patternFill patternType="none"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="2"><xf fontId="0"/><xf fontId="1" applyFont="1"/></cellXfs></styleSheet>',
-    'xl/worksheets/sheet1.xml': `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>${widths.map((width, index) => `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`).join('')}</cols><sheetData>${sheetData}</sheetData></worksheet>`,
-  };
-  downloadFile(withExtension(params.filename, 'xlsx'), zip(files), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  const metadataRows = params.meta ? [
+    ['App Name', safeString(params.meta.appName)],
+    ['Module', safeString(params.meta.module)],
+    ['Page', safeString(params.meta.page)],
+    ['Period', safeString(params.meta.period)],
+    ['Exported At', safeString(params.meta.exportedAt)],
+    ['Total Rows', safeString(params.meta.totalRows)],
+    ['Total Amount', safeString(params.meta.totalAmount)],
+    [],
+  ] : [];
+  const rows = [...metadataRows, prepared.headers, ...prepared.body, ...(prepared.footer ? [prepared.footer] : [])];
+  const htmlRows = rows.map((row, index) => `<tr>${row.map((cell) => `${index === metadataRows.length ? 'th' : 'td'}>${xmlEscape(cell)}</${index === metadataRows.length ? 'th' : 'td'}`).map((cell) => `<${cell}`).join('')}</tr>`).join('');
+  const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${xmlEscape(params.sheetName || 'Voucher')}</title></head><body><table>${htmlRows}</table></body></html>`;
+  downloadFile(withExtension(params.filename.replace(/\.xlsx$/i, '.xls'), 'xls'), html, 'application/vnd.ms-excel;charset=utf-8');
 }
 
 function pdfEscape(value: unknown) { return safeString(value).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)'); }
@@ -234,7 +232,7 @@ export function exportToJson<T>(payload: Record<string, unknown> & { rows: T[] }
   downloadFile(filename, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
 }
 
-export function printVoucherTable<T>(rows: T[], columns: ExportColumn<T>[], meta: { appName: string; module: string; title: string; period: string; totalAmount: number; totalRows: number; filters?: unknown; visibleColumns?: unknown }): void {
+export function printVoucherTable<T>(rows: T[], columns: ExportColumn<T>[], meta: { appName: string; module: string; title: string; period: string; totalAmount: number | string; totalRows: number; filters?: unknown; visibleColumns?: unknown }): void {
   const prepared = prepareExportRows({ rows, columns, includeFooter: true });
   const header = prepared.headers.map((h) => `<th>${xmlEscape(h)}</th>`).join('');
   const body = prepared.body.map((row) => `<tr>${row.map((cell) => `<td>${xmlEscape(cell)}</td>`).join('')}</tr>`).join('');
