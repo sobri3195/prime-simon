@@ -3,6 +3,7 @@ import { Download, Menu, MoreVertical, RotateCcw, Search, ShieldCheck, X } from 
 import { readStorage, removeFromStorage, resetDemoData } from '@/lib/storage';
 import type { ClinicProfile, Settings } from '@/lib/types';
 import { Button, Input, Badge, Dialog } from '../ui/basic';
+import { AppLogo } from './AppLogo';
 
 const monthName = (m: number) => new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(new Date(2026, m - 1, 1));
 const money = (n: number) => new Intl.NumberFormat('id-ID').format(n || 0);
@@ -33,11 +34,11 @@ export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings, 
   );
 
   return (
-    <header className="topbar sticky top-0 z-20 border-b border-slate-200 bg-white/90 px-3 py-2 backdrop-blur sm:px-4 lg:ml-0">
+    <header className={`topbar sticky top-0 z-20 border-b border-slate-200 bg-white/90 px-3 py-2 backdrop-blur transition-all sm:px-4 ${collapsed ? 'lg:ml-20' : 'lg:ml-72'}`}>
       <div className="flex min-h-12 items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <Button variant="ghost" className="shrink-0 lg:hidden" onClick={onMenu} aria-label="Buka menu"><Menu size={18} /></Button>
-          <img src="/logo.svg" alt="Klinik Utama Prime Mata logo" className="hidden h-9 w-9 shrink-0 rounded-xl shadow-sm sm:block lg:hidden" />
+          <AppLogo compact className="hidden sm:flex lg:hidden" />
           <div className="min-w-0">
             <p className="truncate text-xs text-slate-500 sm:text-sm">{profile.name}</p>
             <h2 className="truncate text-sm font-semibold text-slate-900 sm:text-base">{title}</h2>
@@ -50,16 +51,6 @@ export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings, 
           <Button variant="outline" onClick={quickExport}><Download size={16} />Quick Export</Button>
           <Button variant="outline" onClick={resetDemo}><RotateCcw size={16} />Reset Demo</Button>
         </div>
-      </div>
-      <div className="hidden items-center gap-2 md:flex">
-        <Badge variant="outline" className="h-9 border-blue-100 bg-blue-50/70 px-3 text-blue-700">Periode aktif: {periodText}</Badge>
-        <Badge variant="green" className="h-9 border border-emerald-200 bg-emerald-50 px-3"><ShieldCheck size={13} /> Tersimpan lokal</Badge>
-        <div className="relative hidden xl:block">
-          <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
-          <Input value={query} onChange={e => { setQuery(e.target.value); setOpen(e.target.value.length >= 2); }} onFocus={() => query.length >= 2 && setOpen(true)} placeholder="Cari global..." aria-label="Cari global" className="w-56 border-slate-200 bg-slate-50 pl-9 focus:bg-white" />
-        </div>
-        <Button variant="outline" className="h-10" onClick={quickExport}><Download size={16} />Quick Export</Button>
-        <Button variant="outline" className="h-10" onClick={resetDemo}><RotateCcw size={16} />Reset Demo</Button>
       </div>
       <Dialog open={open}>
         <div className="mb-4 flex items-center justify-between">

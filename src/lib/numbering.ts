@@ -1,7 +1,7 @@
 export const romanMonths = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 export const getRomanMonth = (month: number) => romanMonths[month] || '';
 type DocumentKind = 'MEDIS'|'UMUM'|'KK'|'BBK'|'BKK'|'KKM'|'BKM'|'SB'|'SURAT_PENAGIHAN'|'HONOR_DR'|'PAYROLL'|string;
-const storageKey = 'kum-fino-v1:document-running-numbers';
+const storageKey = 'prime-finance-v1:document-running-numbers';
 const pad = (n: number, len: number) => String(n).padStart(len, '0');
 function counterKey(kind: string, date: Date) { return `${kind}:${date.getFullYear()}:${date.getMonth() + 1}`; }
 export function getNextRunningNumber(kind: DocumentKind, date = new Date()) {
@@ -16,7 +16,7 @@ export function getNextRunningNumber(kind: DocumentKind, date = new Date()) {
 export function resetRunningNumbers() { localStorage.removeItem(storageKey); }
 export function generateDocumentNumber(kind: DocumentKind, date = new Date(), sequence?: number, opts: { category?: string; clinicCode?: string; financeCode?: string; style?: 'request'|'voucher'|'cash'|'payment' } = {}) {
   const seq = sequence ?? getNextRunningNumber(kind, date);
-  const m = getRomanMonth(date.getMonth() + 1), y = date.getFullYear(), clinic = opts.clinicCode || 'PK', finance = opts.financeCode || 'KEU';
+  const m = getRomanMonth(date.getMonth() + 1), y = date.getFullYear(), clinic = opts.clinicCode || 'PM', finance = opts.financeCode || 'KEU';
   if (kind === 'MEDIS' || opts.category === 'MEDIS') return `${pad(seq, 3)}/MEDIS/${clinic}-${finance}/${m}/${y}`;
   if (kind === 'UMUM' || opts.category === 'UMUM') return `${pad(seq, 3)}/UMUM/${clinic}-${finance}/${m}/${y}`;
   if (opts.style === 'cash') return `${pad(seq, 3)}/${clinic}-${finance}/${kind}/${m}/${y}`;

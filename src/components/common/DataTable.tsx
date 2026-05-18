@@ -3,7 +3,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, Clipboard, Columns3, Download, 
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, Select, Table } from '../ui/basic';
 import { EmptyState } from './EmptyState';
 import { cn } from '@/lib/utils';
-import { copyTableToClipboard, exportToCSV, exportToExcel, exportToPDF, printTable, type ExportColumn } from '@/lib/export';
+import { copyTableToClipboard, exportToCSV, exportToExcel, exportToJSON, exportToPDF, printTable, type ExportColumn } from '@/lib/export';
 import { formatCurrency, formatDate, formatNumber, safeString } from '@/lib/format';
 import { toast } from '@/lib/toast';
 
@@ -234,11 +234,12 @@ export function DataTable<T extends Record<string, unknown> | object>({
     return false;
   };
 
-  const runExport = async (type: 'copy' | 'csv' | 'excel' | 'pdf' | 'print') => {
+  const runExport = async (type: 'copy' | 'csv' | 'json' | 'excel' | 'pdf' | 'print') => {
     if (!ensureHasData()) return;
     try {
       if (type === 'copy') { await copyTableToClipboard(exportPayload); toast.success('Data berhasil disalin ke clipboard'); }
       if (type === 'csv') { exportToCSV(exportPayload); toast.success('CSV berhasil diexport'); }
+      if (type === 'json') { exportToJSON(exportPayload); toast.success('JSON berhasil diexport'); }
       if (type === 'excel') { exportToExcel({ ...exportPayload, sheetName: 'Data' }); toast.success('Excel berhasil diexport'); }
       if (type === 'pdf') { exportToPDF({ ...exportPayload, title: title || 'Data', subtitle: description }); toast.success('PDF berhasil diexport'); }
       if (type === 'print') { printTable({ ...exportPayload, title: title || 'Data', subtitle: description }); toast.success('Print dibuka'); }
@@ -283,6 +284,7 @@ export function DataTable<T extends Record<string, unknown> | object>({
               <Dropdown label="Export" icon={Download}>
                 {enableCopy && <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50" onClick={() => void runExport('copy')}><Clipboard size={15} /> Copy Clipboard</button>}
                 {enableCSV && <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50" onClick={() => void runExport('csv')}><FileText size={15} /> Export CSV</button>}
+                {enableCSV && <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50" onClick={() => void runExport('json')}><FileText size={15} /> Export JSON</button>}
                 {enableExcel && <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50" onClick={() => void runExport('excel')}><FileSpreadsheet size={15} /> Export Excel</button>}
                 {enablePDF && <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50" onClick={() => void runExport('pdf')}><FileText size={15} /> Export PDF</button>}
                 {enablePrint && <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50" onClick={() => void runExport('print')}><Printer size={15} /> Print</button>}

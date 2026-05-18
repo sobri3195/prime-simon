@@ -3,7 +3,7 @@ import { cn } from './utils';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 type ToastItem = { id: number; type: ToastType; message: string };
-const EVENT_NAME = 'kumpc-toast';
+const EVENT_NAME = 'prime-finance-toast';
 
 export function toast(message: string, type: ToastType = 'info') {
   window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { message, type } }));

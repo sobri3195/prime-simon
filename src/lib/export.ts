@@ -79,6 +79,13 @@ const csvEscape = (value: unknown) => {
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 
+
+export function exportToJSON<T>(params: { filename: string; rows: T[]; columns: ExportColumn<T>[]; includeFooter?: boolean; meta?: Record<string, unknown> }): void {
+  const prepared = prepareExportRows(params);
+  const rows = params.rows.map((row, rowIndex) => Object.fromEntries(prepared.columns.map((column, columnIndex) => [column.header, prepared.body[rowIndex]?.[columnIndex] ?? normalizeExportValue(row, column)])));
+  downloadFile(withExtension(params.filename, 'json'), JSON.stringify({ appName: 'Klinik Utama Prime Mata', module: 'Finance Operations', exportedAt: new Date().toISOString(), rows, footer: prepared.footer, meta: params.meta ?? {} }, null, 2), 'application/json;charset=utf-8');
+}
+
 export function exportToCSV<T>(params: { filename: string; rows: T[]; columns: ExportColumn<T>[]; includeFooter?: boolean }): void;
 export function exportToCSV(filename: string, rows: Record<string, unknown>[]): void;
 export function exportToCSV<T>(paramsOrFilename: { filename: string; rows: T[]; columns: ExportColumn<T>[]; includeFooter?: boolean } | string, legacyRows?: Record<string, unknown>[]): void {
@@ -215,7 +222,7 @@ export async function copyTableToClipboard<T>(params: { rows: T[]; columns: Expo
 export function printTable<T>(params: { title?: string; subtitle?: string; rows: T[]; columns: ExportColumn<T>[]; includeFooter?: boolean }): void {
   const prepared = prepareExportRows(params);
   const rows = [prepared.headers, ...prepared.body, ...(prepared.footer ? [prepared.footer] : [])];
-  const html = `<!doctype html><html><head><title>${xmlEscape(params.title || 'Print')}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#111827}h1{font-size:20px;margin:0 0 4px}.meta{color:#64748b;margin-bottom:16px}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #cbd5e1;padding:6px;text-align:left}th,tfoot td{background:#f1f5f9;font-weight:700}</style></head><body><h1>${xmlEscape(params.title || '')}</h1><div class="meta">${xmlEscape(params.subtitle || '')}<br/>Dicetak ${xmlEscape(new Date().toLocaleString('id-ID'))}</div><table><thead><tr>${prepared.headers.map((h) => `<th>${xmlEscape(h)}</th>`).join('')}</tr></thead><tbody>${prepared.body.map((row) => `<tr>${row.map((cell) => `<td>${xmlEscape(cell)}</td>`).join('')}</tr>`).join('')}</tbody>${prepared.footer ? `<tfoot><tr>${prepared.footer.map((cell) => `<td>${xmlEscape(cell)}</td>`).join('')}</tr></tfoot>` : ''}</table><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),300)}</script></body></html>`;
+  const html = `<!doctype html><html><head><title>${xmlEscape(params.title || 'Print')}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#111827}h1{font-size:20px;margin:0 0 4px}.meta{color:#64748b;margin-bottom:16px}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #cbd5e1;padding:6px;text-align:left}th,tfoot td{background:#f1f5f9;font-weight:700}</style></head><body><div style="font-size:12px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:.12em">Klinik Utama Prime Mata • Finance Operations</div><h1>${xmlEscape(params.title || '')}</h1><div class="meta">${xmlEscape(params.subtitle || '')}<br/>Periode aktif: Mei 2026<br/>Tanggal print: ${xmlEscape(new Date().toLocaleString('id-ID'))}</div><table><thead><tr>${prepared.headers.map((h) => `<th>${xmlEscape(h)}</th>`).join('')}</tr></thead><tbody>${prepared.body.map((row) => `<tr>${row.map((cell) => `<td>${xmlEscape(cell)}</td>`).join('')}</tr>`).join('')}</tbody>${prepared.footer ? `<tfoot><tr>${prepared.footer.map((cell) => `<td>${xmlEscape(cell)}</td>`).join('')}</tr></tfoot>` : ''}</table><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),300)}</script></body></html>`;
   const popup = window.open('', '_blank');
   if (!popup) return;
   popup.document.open();
