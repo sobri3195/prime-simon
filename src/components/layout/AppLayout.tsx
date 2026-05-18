@@ -24,7 +24,7 @@ export function AppLayout({ current, onNavigate, children, onReset, profile, set
         </div>
         <div className="lg:hidden">
           <nav className="grid gap-1" aria-label="Mobile navigation">
-            {navItems.map(n => { const Icon = n.icon; return <Button key={n.id} variant={current === n.id ? 'secondary' : 'ghost'} className="justify-start" onClick={() => { onNavigate(n.id); setOpen(false); }}><Icon size={16} />{n.group} - {n.label}</Button>; })}
+            {navItems.map(n => { const Icon = n.icon; return <Button key={n.id} variant={current === n.id ? 'secondary' : 'ghost'} className={`justify-start ${current === n.id ? 'text-[#B19731]' : ''}`} onClick={() => { onNavigate(n.id); setOpen(false); }}><Icon size={16} />{n.group} - {n.label}</Button>; })}
           </nav>
         </div>
       </Dialog>
