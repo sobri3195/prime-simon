@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
-  <title id="title">Prime Klinik logo</title>
-  <desc id="desc">Blue medical finance mark with a clinic cross, ledger bars, and PK initials.</desc>
+  <title id="title">Klinik Utama Prime Mata logo</title>
+  <desc id="desc">Blue medical finance mark with a clinic cross, ledger bars, and PM initials.</desc>
   <defs>
     <linearGradient id="bg" x1="96" y1="64" x2="416" y2="448" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#2563eb"/>
@@ -17,5 +17,5 @@
   <path d="M236 156h40c8.837 0 16 7.163 16 16v48h48c8.837 0 16 7.163 16 16v40c0 8.837-7.163 16-16 16h-48v48c0 8.837-7.163 16-16 16h-40c-8.837 0-16-7.163-16-16v-48h-48c-8.837 0-16-7.163-16-16v-40c0-8.837 7.163-16 16-16h48v-48c0-8.837 7.163-16 16-16Z" fill="#fff"/>
   <path d="M156 366h200" stroke="#fff" stroke-width="24" stroke-linecap="round" opacity="0.92"/>
   <path d="M176 336v-44m54 44v-78m54 78v-110m54 110v-62" stroke="#dbeafe" stroke-width="22" stroke-linecap="round"/>
-  <text x="256" y="433" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="800" fill="#0f172a" letter-spacing="2">PK</text>
+  <text x="256" y="433" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="800" fill="#0f172a" letter-spacing="2">PM</text>
 </svg>

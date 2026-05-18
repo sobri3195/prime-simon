@@ -354,8 +354,7 @@ export function DataTable<T extends Record<string, unknown> | object>({
                 </tfoot>
               )}
             </Table>
-            </div>
-          </>
+          </div>
         )}
 
         {enablePagination && (

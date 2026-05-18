@@ -1,6 +1,6 @@
 export const seoConfig = {
-  appName: 'Prime Klinik',
-  shortName: 'Prime Klinik',
+  appName: 'Klinik Utama Prime Mata',
+  shortName: 'Klinik Utama Prime Mata',
   description:
     'Dashboard keuangan klinik untuk pendapatan, hutang-piutang, voucher, payroll, pajak, aset, rekonsiliasi, dan laporan manajemen.',
   image: '/og-image.svg',
