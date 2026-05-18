@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Download, Menu, MoreVertical, RotateCcw, Search, ShieldCheck, X } from 'lucide-react';
-import { exportAllData, readStorage, resetDemoData } from '@/lib/storage';
+import { readStorage, resetDemoData } from '@/lib/storage';
 import type { ClinicProfile, Settings } from '@/lib/types';
 import { Button, Input, Badge, Dialog } from '../ui/basic';
 
@@ -13,8 +13,8 @@ export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings, 
   const [query, setQuery] = React.useState('');
   const [open, setOpen] = React.useState(false);
   const [actionsOpen, setActionsOpen] = React.useState(false);
-  const quickExport = () => { const data = JSON.stringify(exportAllData(), null, 2); const blob = new Blob([data], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `prime-mata-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url); };
-  const periodText = settings.activeDateFrom && settings.activeDateTo ? `${new Date(settings.activeDateFrom).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })} - ${new Date(settings.activeDateTo).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}` : `${monthName(settings.activeMonth ?? settings.defaultMonth)} ${settings.activeYear ?? settings.defaultYear}`;
+  const quickExport = () => { window.dispatchEvent(new CustomEvent('prime:voucher-quick-export')); };
+  const periodText = `${monthName(settings.activeMonth ?? settings.defaultMonth)} ${settings.activeYear ?? settings.defaultYear}`;
   const results = React.useMemo(() => {
     const q = query.toLowerCase().trim(); if (q.length < 2) return [] as SearchResult[];
     const rev = readStorage('revenue-transactions').map(r => ({ module: 'Pendapatan', page: 'revenue', title: r.receiptNo || r.invoiceNo, subtitle: `${r.patientName} • ${r.payerName}`, date: r.date, amount: r.netAmount, blob: JSON.stringify(r) }));
@@ -27,7 +27,7 @@ export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings, 
   const searchBox = (
     <div className="relative">
       <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
-      <Input value={query} onChange={e => { setQuery(e.target.value); setOpen(e.target.value.length >= 2); }} onFocus={() => query.length >= 2 && setOpen(true)} placeholder="Cari global..." className="w-full border-slate-200 bg-slate-50 pl-9 focus:bg-white" />
+      <Input value={query} onChange={e => { setQuery(e.target.value); setOpen(e.target.value.length >= 2); }} onFocus={() => query.length >= 2 && setOpen(true)} placeholder="Cari global..." aria-label="Cari global" className="w-full border-slate-200 bg-slate-50 pl-9 focus:bg-white" />
     </div>
   );
 
@@ -55,7 +55,7 @@ export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings, 
         <Badge variant="green" className="h-9 border border-emerald-200 bg-emerald-50 px-3"><ShieldCheck size={13} /> Tersimpan lokal</Badge>
         <div className="relative hidden xl:block">
           <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
-          <Input value={query} onChange={e => { setQuery(e.target.value); setOpen(e.target.value.length >= 2); }} onFocus={() => query.length >= 2 && setOpen(true)} placeholder="Cari global..." className="w-56 border-slate-200 bg-slate-50 pl-9 focus:bg-white" />
+          <Input value={query} onChange={e => { setQuery(e.target.value); setOpen(e.target.value.length >= 2); }} onFocus={() => query.length >= 2 && setOpen(true)} placeholder="Cari global..." aria-label="Cari global" className="w-56 border-slate-200 bg-slate-50 pl-9 focus:bg-white" />
         </div>
         <Button variant="outline" className="h-10" onClick={quickExport}><Download size={16} />Quick Export</Button>
         <Button variant="outline" className="h-10" onClick={() => { resetDemoData(); onReset(); }}><RotateCcw size={16} />Reset Demo</Button>
