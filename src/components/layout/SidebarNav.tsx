@@ -1,24 +1,49 @@
-import type * as React from 'react';
-import { Activity, Archive, BarChart3, Briefcase, Building2, ChevronLeft, ChevronRight, ClipboardList, CreditCard, Database, FileText, HandCoins, Home, Landmark, Package, ReceiptText, Settings, Stethoscope, Users } from 'lucide-react';
+import * as React from 'react';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../ui/basic';
+import { cn } from '@/lib/utils';
+import { AppLogo } from './AppLogo';
+import { menuGroups, navItems } from '@/data/menuConfig';
 
-export type NavItem = { id: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }>; group: string };
-export const navItems: NavItem[] = [
-  { id: 'dashboard', label: 'Overview', icon: Home, group: 'Dashboard' },
-  { id: 'master-profile', label: 'Profil Klinik', icon: Database, group: 'Master Data' }, { id: 'master-doctors', label: 'Dokter', icon: Stethoscope, group: 'Master Data' }, { id: 'master-employees', label: 'Karyawan', icon: Users, group: 'Master Data' }, { id: 'master-vendors', label: 'Vendor', icon: Briefcase, group: 'Master Data' }, { id: 'master-payers', label: 'Payer / Asuransi', icon: Landmark, group: 'Master Data' }, { id: 'master-coa', label: 'COA', icon: ReceiptText, group: 'Master Data' }, { id: 'master-cost-center', label: 'Cost Center', icon: Building2, group: 'Master Data' }, { id: 'master-tax', label: 'Tarif Pajak', icon: Activity, group: 'Master Data' }, { id: 'master-service-category', label: 'Kategori Layanan', icon: Archive, group: 'Master Data' },
-  { id: 'daily-revenue', label: 'Input Pendapatan Harian', icon: CreditCard, group: 'Pendapatan' }, { id: 'revenue', label: 'Laporan Pendapatan Detail', icon: BarChart3, group: 'Pendapatan' }, { id: 'doctor-ranking', label: 'Pendapatan Per Dokter', icon: Stethoscope, group: 'Pendapatan' }, { id: 'highlight', label: 'Report Highlight', icon: Activity, group: 'Pendapatan' }, { id: 'cashier', label: 'Pendapatan Kasir Harian', icon: Landmark, group: 'Pendapatan' }, { id: 'debit-credit-card', label: 'Kartu Debit / Kredit', icon: CreditCard, group: 'Pendapatan' },
-  { id: 'doctor-fee', label: 'Input Jasa Medis', icon: HandCoins, group: 'Dokter & Honor' }, { id: 'doctor-fee-recap', label: 'Rekap Jasa Medis Dokter', icon: ReceiptText, group: 'Dokter & Honor' }, { id: 'doctor-deduction', label: 'Potongan Jasa Dokter', icon: FileText, group: 'Dokter & Honor' }, { id: 'doctor-payment', label: 'Pembayaran Honor Dokter', icon: HandCoins, group: 'Dokter & Honor' }, { id: 'doctor-tax', label: 'PPh Honor Dokter', icon: Briefcase, group: 'Dokter & Honor' },
-  { id: 'payment-request', label: 'Pengajuan Pembayaran Vendor', icon: ClipboardList, group: 'Pengajuan & Voucher' }, { id: 'petty-cash', label: 'Pengajuan Kas Kecil', icon: CreditCard, group: 'Pengajuan & Voucher' }, { id: 'voucher-bbk', label: 'Voucher BBK', icon: FileText, group: 'Pengajuan & Voucher' }, { id: 'voucher-bkk', label: 'Voucher BKK', icon: FileText, group: 'Pengajuan & Voucher' }, { id: 'voucher-kk', label: 'Voucher Kas Kecil', icon: FileText, group: 'Pengajuan & Voucher' }, { id: 'voucher-kkm', label: 'Penerimaan Kas Kecil', icon: FileText, group: 'Pengajuan & Voucher' }, { id: 'setor-bank', label: 'Bukti Setor Bank', icon: Landmark, group: 'Pengajuan & Voucher' },
-  { id: 'ar', label: 'Aging Piutang', icon: FileText, group: 'Piutang & Hutang' }, { id: 'ap', label: 'Aging Hutang', icon: ReceiptText, group: 'Piutang & Hutang' }, { id: 'collection-letter', label: 'Surat Penagihan Asuransi', icon: FileText, group: 'Piutang & Hutang' },
-  { id: 'inventory-master', label: 'Master Persediaan', icon: Package, group: 'Persediaan' }, { id: 'inventory-mutation', label: 'Mutasi Persediaan', icon: Package, group: 'Persediaan' }, { id: 'inventory', label: 'Laporan Persediaan Average', icon: Package, group: 'Persediaan' },
-  { id: 'asset-master', label: 'Master Aset', icon: Building2, group: 'Aset Tetap' }, { id: 'asset-depreciation', label: 'Penyusutan Aset', icon: Building2, group: 'Aset Tetap' }, { id: 'assets', label: 'Laporan Aset by Cost Center', icon: Building2, group: 'Aset Tetap' },
-  { id: 'tax', label: 'PPh 21 / 23', icon: Briefcase, group: 'Pajak' }, { id: 'doctor-tax-page', label: 'PPh Honor Dokter', icon: Briefcase, group: 'Pajak' }, { id: 'ppn', label: 'PPN Prepopulated', icon: Archive, group: 'Pajak' }, { id: 'tax-summary', label: 'Rekap Pajak Bulanan', icon: ReceiptText, group: 'Pajak' },
-  { id: 'attendance', label: 'Absensi', icon: Users, group: 'Payroll' }, { id: 'payroll', label: 'Rekap Gaji', icon: HandCoins, group: 'Payroll' }, { id: 'payroll-slip', label: 'Slip Gaji', icon: ReceiptText, group: 'Payroll' },
-  { id: 'pl', label: 'Laba Rugi', icon: BarChart3, group: 'Laporan Keuangan' }, { id: 'pl-payer', label: 'Laba Rugi by Payer', icon: BarChart3, group: 'Laporan Keuangan' }, { id: 'balance', label: 'Neraca', icon: Landmark, group: 'Laporan Keuangan' }, { id: 'equity', label: 'Perubahan Modal', icon: FileText, group: 'Laporan Keuangan' }, { id: 'cashflow', label: 'Arus Kas', icon: CreditCard, group: 'Laporan Keuangan' }, { id: 'budget', label: 'RAB vs Realisasi', icon: Activity, group: 'Laporan Keuangan' },
-  { id: 'utility', label: 'Import / Export', icon: Settings, group: 'Utility' }, { id: 'audit-trail', label: 'Audit Trail', icon: ClipboardList, group: 'Utility' }, { id: 'reconciliation', label: 'Rekonsiliasi', icon: Activity, group: 'Utility' }, { id: 'settings', label: 'Settings', icon: Settings, group: 'Utility' }, { id: 'reset-data', label: 'Reset Data', icon: Settings, group: 'Utility' },
-];
+export { navItems };
 
 export function SidebarNav({ current, onNavigate, collapsed = false, onToggle }: { current: string; onNavigate: (id: string) => void; collapsed?: boolean; onToggle?: () => void }) {
-  const groups = [...new Set(navItems.map(n => n.group))];
-  return <aside className={`sidebar fixed inset-y-0 left-0 z-30 hidden border-r border-slate-200 bg-white transition-all lg:block ${collapsed ? 'w-20' : 'w-72'}`}><div className="flex h-16 items-center gap-2 border-b px-4"><img src="/logo.svg" alt="Klinik Utama Prime Mata logo" className="h-10 w-10 shrink-0 rounded-2xl shadow-sm" />{!collapsed && <div><p className="font-bold">Klinik Utama Prime Mata</p><p className="text-xs text-slate-500">Finance Operations</p></div>}<Button variant="ghost" className="ml-auto" onClick={onToggle}>{collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}</Button></div><nav className="h-[calc(100vh-4rem)] overflow-y-auto p-3">{groups.map(g => <div key={g} className="mb-3"><div className="mb-1 px-2 text-xs font-semibold uppercase text-slate-400">{collapsed ? '' : g}</div>{navItems.filter(n => n.group === g).map(n => { const Icon = n.icon; return <Button key={n.id} title={n.label} variant={current === n.id ? 'secondary' : 'ghost'} className={`mb-1 w-full ${collapsed ? 'justify-center px-2' : 'justify-start'} ${current === n.id ? 'text-blue-700' : ''}`} onClick={() => onNavigate(n.id)}><Icon size={16} />{!collapsed && n.label}</Button>; })}</div>)}</nav></aside>;
+  const [closedGroups, setClosedGroups] = React.useState<Record<string, boolean>>({});
+  return (
+    <aside className={cn('sidebar fixed inset-y-0 left-0 z-30 hidden border-r border-slate-200 bg-white transition-all lg:block', collapsed ? 'w-20' : 'w-72')}>
+      <div className="flex h-20 items-center gap-2 border-b border-slate-100 px-4">
+        <AppLogo collapsed={collapsed} />
+        <Button variant="ghost" className="ml-auto h-9 w-9 px-0" onClick={onToggle} aria-label="Toggle sidebar">{collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}</Button>
+      </div>
+      <nav className="h-[calc(100vh-5rem)] overflow-y-auto px-3 py-4" aria-label="Navigasi Finance Operations">
+        {menuGroups.map((group) => {
+          const items = navItems.filter((item) => item.group === group);
+          const isClosed = closedGroups[group];
+          if (!items.length) return null;
+          return (
+            <section key={group} className="mb-4">
+              <button type="button" className={cn('mb-1 flex w-full items-center justify-between rounded-lg px-2 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400', !collapsed && 'hover:bg-slate-50')} onClick={() => !collapsed && setClosedGroups((value) => ({ ...value, [group]: !value[group] }))}>
+                <span>{collapsed ? '' : group}</span>
+                {!collapsed && <ChevronDown size={13} className={cn('transition', isClosed && '-rotate-90')} />}
+              </button>
+              {(!isClosed || collapsed) && (
+                <div className="grid gap-1">
+                  {items.map((item) => {
+                    const Icon = item.icon;
+                    const active = current === item.id || (item.id.startsWith('master-') && current === 'master' && item.id === 'master-profile');
+                    return (
+                      <Button key={item.id} title={item.label} variant="ghost" className={cn('h-10 w-full rounded-xl text-slate-600 hover:bg-blue-50 hover:text-blue-700', collapsed ? 'justify-center px-2' : 'justify-start', active && 'bg-blue-50 font-semibold text-blue-700 ring-1 ring-blue-100')} onClick={() => onNavigate(item.id)}>
+                        <Icon size={17} className={cn(active && 'text-blue-600')} />
+                        {!collapsed && <span className="truncate">{item.label}</span>}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </nav>
+    </aside>
+  );
 }
