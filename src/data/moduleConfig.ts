@@ -4,14 +4,21 @@ import { formatRupiah } from '@/lib/format';
 export type FieldType = 'text' | 'number' | 'currency' | 'date' | 'select' | 'textarea' | 'toggle';
 export type FormField = { key: string; label: string; type?: FieldType; required?: boolean; options?: string[]; placeholder?: string; section?: 'primary' | 'secondary' };
 export type ModuleConfig<T extends Record<string, any> = Record<string, any>> = {
-  key: string;
+  moduleKey: string;
+  key?: string;
   title: string;
   subtitle: string;
-  type: 'profile' | 'master-table' | 'transaction-table' | 'dashboard';
+  type: 'profile' | 'master-table' | 'transaction-table' | 'dashboard' | 'profile-form' | 'budget-table' | 'report-table' | 'analytic-dashboard';
+  primaryActionLabel?: string;
   primaryAction?: string;
   exportFilename?: string;
   localStorageKey?: string;
+  filters?: Array<{ key: string; label: string; type?: string; options?: string[] }>;
+  summaryCards?: Array<{ key: string; label: string; valueType?: 'currency' | 'number' | 'percent' | 'text' }>;
   emptyState?: string;
+  emptyStateTitle?: string;
+  emptyStateDescription?: string;
+  printTitle?: string;
   columns?: DataTableColumn<T>[];
   formFields?: FormField[];
   sampleData?: T[];
@@ -36,51 +43,60 @@ export const localStorageKeys = {
 
 export const moduleConfigs = {
   clinicProfile: {
-    key: 'clinicProfile', title: 'Profil Klinik', subtitle: 'Pengaturan identitas, legal entity, dan kode finance klinik.', type: 'profile', localStorageKey: localStorageKeys.clinicProfile, primaryAction: 'Simpan Profil', exportFilename: 'profil-klinik-prime-mata',
+    moduleKey: 'clinicProfile',
+    key: 'clinicProfile', title: 'Profil Klinik', subtitle: 'Pengaturan identitas, legal entity, dan kode finance klinik.', type: 'profile', localStorageKey: localStorageKeys.clinicProfile, primaryActionLabel: 'Simpan Profil', primaryAction: 'Simpan Profil', exportFilename: 'profil-klinik-prime-mata',
     formFields: [
       { key: 'name', label: 'Nama Klinik', required: true, section: 'primary' }, { key: 'address', label: 'Alamat', type: 'textarea', required: true, section: 'primary' }, { key: 'city', label: 'Kota', required: true, section: 'primary' }, { key: 'phone', label: 'Nomor Telepon', required: true, section: 'primary' },
       { key: 'legalEntityName', label: 'Nama Legal', required: true, section: 'secondary' }, { key: 'clinicCode', label: 'Kode Klinik', required: true, section: 'secondary' }, { key: 'financeCode', label: 'Kode Finance', required: true, section: 'secondary' },
     ],
   },
   doctors: {
-    key: 'doctors', title: 'Dokter', subtitle: 'Master dokter aktif beserta spesialisasi dan tarif jasa standar.', type: 'master-table', localStorageKey: localStorageKeys.doctors, primaryAction: 'Tambah Dokter', exportFilename: 'master-dokter',
+    moduleKey: 'doctors',
+    key: 'doctors', title: 'Dokter', subtitle: 'Master dokter aktif beserta spesialisasi dan tarif jasa standar.', type: 'master-table', localStorageKey: localStorageKeys.doctors, primaryActionLabel: 'Tambah Dokter', primaryAction: 'Tambah Dokter', exportFilename: 'master-dokter',
     columns: [
       { key: 'id', header: 'Kode Dokter' }, { key: 'name', header: 'Nama Dokter' }, { key: 'specialty', header: 'Spesialisasi' }, { key: 'isActive', header: 'Status', accessor: (r) => r.isActive ? 'Aktif' : 'Nonaktif' }, { key: 'tariff', header: 'Tarif Jasa', isCurrency: true, exportAccessor: (r) => r.tariff ?? 0 },
     ],
     formFields: [{ key: 'name', label: 'Nama Dokter', required: true }, { key: 'specialty', label: 'Spesialisasi', required: true }, { key: 'tariff', label: 'Tarif Jasa', type: 'currency', required: true }, { key: 'isActive', label: 'Status Aktif', type: 'toggle' }],
   },
   employees: {
-    key: 'employees', title: 'Karyawan', subtitle: 'Data karyawan untuk payroll, absensi, dan otorisasi pengajuan.', type: 'master-table', localStorageKey: localStorageKeys.employees, primaryAction: 'Tambah Karyawan', exportFilename: 'master-karyawan',
+    moduleKey: 'employees',
+    key: 'employees', title: 'Karyawan', subtitle: 'Data karyawan untuk payroll, absensi, dan otorisasi pengajuan.', type: 'master-table', localStorageKey: localStorageKeys.employees, primaryActionLabel: 'Tambah Karyawan', primaryAction: 'Tambah Karyawan', exportFilename: 'master-karyawan',
     columns: [{ key: 'id', header: 'NIK' }, { key: 'name', header: 'Nama Karyawan' }, { key: 'position', header: 'Jabatan' }, { key: 'employeeType', header: 'Departemen' }, { key: 'isActive', header: 'Status', accessor: (r) => r.isActive ? 'Aktif' : 'Nonaktif' }],
     formFields: [{ key: 'id', label: 'NIK', required: true }, { key: 'name', label: 'Nama Karyawan', required: true }, { key: 'position', label: 'Jabatan', required: true }, { key: 'employeeType', label: 'Departemen', type: 'select', options: ['Medis', 'Non Medis'], required: true }, { key: 'isActive', label: 'Status Aktif', type: 'toggle' }],
   },
   vendors: {
-    key: 'vendors', title: 'Vendor', subtitle: 'Supplier farmasi, BMHP, alat kesehatan, dan vendor umum.', type: 'master-table', localStorageKey: localStorageKeys.vendors, primaryAction: 'Tambah Vendor', exportFilename: 'master-vendor',
+    moduleKey: 'vendors',
+    key: 'vendors', title: 'Vendor', subtitle: 'Supplier farmasi, BMHP, alat kesehatan, dan vendor umum.', type: 'master-table', localStorageKey: localStorageKeys.vendors, primaryActionLabel: 'Tambah Vendor', primaryAction: 'Tambah Vendor', exportFilename: 'master-vendor',
     columns: [{ key: 'id', header: 'Kode Vendor' }, { key: 'name', header: 'Nama Vendor' }, { key: 'bankAccountName', header: 'Kontak' }, { key: 'category', header: 'Kategori' }, { key: 'payableBalance', header: 'Saldo Hutang', isCurrency: true, exportAccessor: (r) => r.payableBalance ?? 0 }, { key: 'isActive', header: 'Status', accessor: (r) => r.isActive ? 'Aktif' : 'Nonaktif' }],
     formFields: [{ key: 'name', label: 'Nama Vendor', required: true }, { key: 'bankAccountName', label: 'Kontak / PIC', required: true }, { key: 'category', label: 'Kategori', type: 'select', options: ['Farmasi', 'BMHP', 'Alkes', 'Umum'], required: true }, { key: 'payableBalance', label: 'Saldo Hutang', type: 'currency' }, { key: 'isActive', label: 'Status Aktif', type: 'toggle' }],
   },
   payers: {
-    key: 'payers', title: 'Payer / Asuransi', subtitle: 'Kontrak penjamin pasien, termin pembayaran, dan status kerja sama.', type: 'master-table', localStorageKey: localStorageKeys.payers, primaryAction: 'Tambah Payer', exportFilename: 'master-payer',
+    moduleKey: 'payers',
+    key: 'payers', title: 'Payer / Asuransi', subtitle: 'Kontrak penjamin pasien, termin pembayaran, dan status kerja sama.', type: 'master-table', localStorageKey: localStorageKeys.payers, primaryActionLabel: 'Tambah Payer', primaryAction: 'Tambah Payer', exportFilename: 'master-payer',
     columns: [{ key: 'id', header: 'Kode Payer' }, { key: 'name', header: 'Nama Payer' }, { key: 'type', header: 'Tipe' }, { key: 'paymentTerm', header: 'Termin Pembayaran' }, { key: 'contractStatus', header: 'Status Kontrak', accessor: (r) => r.contractStatus ?? (r.isActive ? 'Aktif' : 'Nonaktif') }],
     formFields: [{ key: 'name', label: 'Nama Payer', required: true }, { key: 'type', label: 'Tipe', type: 'select', options: ['Umum', 'BPJS', 'Asuransi', 'Perusahaan'], required: true }, { key: 'paymentTerm', label: 'Termin Pembayaran', type: 'select', options: ['Cash', '14 Hari', '30 Hari', '45 Hari'], required: true }, { key: 'contractStatus', label: 'Status Kontrak', type: 'select', options: ['Aktif', 'Review', 'Berakhir'], required: true }],
   },
   coa: {
-    key: 'coa', title: 'COA', subtitle: 'Chart of accounts untuk posting jurnal dan laporan keuangan.', type: 'master-table', localStorageKey: localStorageKeys.coa, primaryAction: 'Tambah Akun', exportFilename: 'master-coa',
+    moduleKey: 'coa',
+    key: 'coa', title: 'COA', subtitle: 'Chart of accounts untuk posting jurnal dan laporan keuangan.', type: 'master-table', localStorageKey: localStorageKeys.coa, primaryActionLabel: 'Tambah Akun', primaryAction: 'Tambah Akun', exportFilename: 'master-coa',
     columns: [{ key: 'code', header: 'Kode Akun' }, { key: 'name', header: 'Nama Akun' }, { key: 'category', header: 'Kategori' }, { key: 'normalBalance', header: 'Normal Balance' }, { key: 'isActive', header: 'Status', accessor: (r) => r.isActive ? 'Aktif' : 'Nonaktif' }],
     formFields: [{ key: 'code', label: 'Kode Akun', required: true }, { key: 'name', label: 'Nama Akun', required: true }, { key: 'category', label: 'Kategori', type: 'select', options: ['Asset', 'Liability', 'Equity', 'Revenue', 'COGS', 'Expense', 'Other'], required: true }, { key: 'normalBalance', label: 'Normal Balance', type: 'select', options: ['Debit', 'Credit'], required: true }, { key: 'isActive', label: 'Status Aktif', type: 'toggle' }],
   },
   costCenters: {
-    key: 'costCenters', title: 'Cost Center', subtitle: 'Budget dan realisasi per unit operasional klinik.', type: 'master-table', localStorageKey: localStorageKeys.costCenters, primaryAction: 'Tambah Cost Center', exportFilename: 'master-cost-center', emptyState: 'Belum ada cost center.',
+    moduleKey: 'costCenters',
+    key: 'costCenters', title: 'Cost Center', subtitle: 'Budget dan realisasi per unit operasional klinik.', type: 'master-table', localStorageKey: localStorageKeys.costCenters, primaryActionLabel: 'Tambah Cost Center', primaryAction: 'Tambah Cost Center', exportFilename: 'master-cost-center', emptyState: 'Belum ada cost center.',
     columns: [{ key: 'code', header: 'Kode Cost Center' }, { key: 'name', header: 'Nama Cost Center' }, { key: 'department', header: 'Departemen' }, { key: 'monthlyBudget', header: 'Budget Bulanan', isCurrency: true }, { key: 'realization', header: 'Realisasi', isCurrency: true }, { key: 'status', header: 'Status' }],
     formFields: [{ key: 'code', label: 'Kode Cost Center', required: true }, { key: 'name', label: 'Nama Cost Center', required: true }, { key: 'department', label: 'Departemen', type: 'select', options: ['Medis', 'Finance', 'Operasional', 'Support'], required: true }, { key: 'monthlyBudget', label: 'Budget Bulanan', type: 'currency', required: true }, { key: 'realization', label: 'Realisasi', type: 'currency' }, { key: 'status', label: 'Status', type: 'select', options: ['Aktif', 'Monitoring', 'Nonaktif'], required: true }],
   },
   taxRates: {
-    key: 'taxRates', title: 'Tarif Pajak', subtitle: 'Master tarif pajak yang digunakan pada transaksi vendor, dokter, dan PPN.', type: 'master-table', localStorageKey: localStorageKeys.taxRates, primaryAction: 'Tambah Tarif Pajak', exportFilename: 'master-tarif-pajak',
+    moduleKey: 'taxRates',
+    key: 'taxRates', title: 'Tarif Pajak', subtitle: 'Master tarif pajak yang digunakan pada transaksi vendor, dokter, dan PPN.', type: 'master-table', localStorageKey: localStorageKeys.taxRates, primaryActionLabel: 'Tambah Tarif Pajak', primaryAction: 'Tambah Tarif Pajak', exportFilename: 'master-tarif-pajak',
     columns: [{ key: 'code', header: 'Kode Pajak' }, { key: 'name', header: 'Jenis Pajak' }, { key: 'rate', header: 'Rate', accessor: (r) => `${r.rate}%` }, { key: 'effectiveFrom', header: 'Berlaku Mulai', isDate: true }, { key: 'status', header: 'Status' }],
     formFields: [{ key: 'code', label: 'Kode Pajak', required: true }, { key: 'name', label: 'Jenis Pajak', required: true }, { key: 'rate', label: 'Rate (%)', type: 'number', required: true }, { key: 'effectiveFrom', label: 'Berlaku Mulai', type: 'date', required: true }, { key: 'status', label: 'Status', type: 'select', options: ['Aktif', 'Draft', 'Nonaktif'], required: true }],
   },
   serviceCategories: {
-    key: 'serviceCategories', title: 'Kategori Layanan', subtitle: 'Mapping kategori layanan ke departemen dan akun pendapatan default.', type: 'master-table', localStorageKey: localStorageKeys.serviceCategories, primaryAction: 'Tambah Kategori', exportFilename: 'master-kategori-layanan',
+    moduleKey: 'serviceCategories',
+    key: 'serviceCategories', title: 'Kategori Layanan', subtitle: 'Mapping kategori layanan ke departemen dan akun pendapatan default.', type: 'master-table', localStorageKey: localStorageKeys.serviceCategories, primaryActionLabel: 'Tambah Kategori', primaryAction: 'Tambah Kategori', exportFilename: 'master-kategori-layanan',
     columns: [{ key: 'code', header: 'Kode Kategori' }, { key: 'name', header: 'Nama Kategori' }, { key: 'department', header: 'Departemen' }, { key: 'defaultCoa', header: 'Default COA' }, { key: 'status', header: 'Status' }],
     formFields: [{ key: 'code', label: 'Kode Kategori', required: true }, { key: 'name', label: 'Nama Kategori', required: true }, { key: 'department', label: 'Departemen', type: 'select', options: ['Rawat Jalan', 'Farmasi', 'Laboratorium', 'Optik', 'Operasi'], required: true }, { key: 'defaultCoa', label: 'Default COA', required: true }, { key: 'status', label: 'Status', type: 'select', options: ['Aktif', 'Review', 'Nonaktif'], required: true }],
   },
