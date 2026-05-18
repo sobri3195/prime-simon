@@ -23,6 +23,24 @@ export function updateStorageItem<T>(key: StorageKey | string, updater: (value: 
   return next;
 }
 export function removeStorageItem(key: StorageKey | string) { localStorage.removeItem(fullKey(key)); }
+
+export function loadFromStorage<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw) as T;
+    return parsed === undefined || parsed === null ? fallback : parsed;
+  } catch {
+    return fallback;
+  }
+}
+export function saveToStorage<T>(key: string, value: T): void {
+  if (value === undefined || value === null) return;
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* localStorage can be unavailable or full */ }
+}
+export function removeFromStorage(key: string): void {
+  try { localStorage.removeItem(key); } catch { /* localStorage can be unavailable */ }
+}
 export function readStorage<K extends StorageKey>(key: K): AppData[K] {
   const seed = createSeedData()[key];
   return getStorageItem<AppData[K]>(key, seed as AppData[K]);

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Download, Menu, MoreVertical, RotateCcw, Search, ShieldCheck, X } from 'lucide-react';
-import { readStorage, resetDemoData } from '@/lib/storage';
+import { readStorage, removeFromStorage, resetDemoData } from '@/lib/storage';
 import type { ClinicProfile, Settings } from '@/lib/types';
 import { Button, Input, Badge, Dialog } from '../ui/basic';
 
@@ -14,6 +14,7 @@ export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings, 
   const [open, setOpen] = React.useState(false);
   const [actionsOpen, setActionsOpen] = React.useState(false);
   const quickExport = () => { window.dispatchEvent(new CustomEvent('prime:voucher-quick-export')); };
+  const resetDemo = () => { ['prime_finance_vouchers', 'prime_finance_voucher_visible_columns', 'prime_finance_voucher_rows_per_page', 'prime_finance_voucher_selected_type', 'prime_finance_voucher_search', 'prime_finance_voucher_sort', 'prime_finance_active_period'].forEach(removeFromStorage); window.dispatchEvent(new CustomEvent('prime:voucher-reset-demo')); resetDemoData(); onReset(); };
   const periodText = `${monthName(settings.activeMonth ?? settings.defaultMonth)} ${settings.activeYear ?? settings.defaultYear}`;
   const results = React.useMemo(() => {
     const q = query.toLowerCase().trim(); if (q.length < 2) return [] as SearchResult[];
@@ -47,7 +48,7 @@ export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings, 
           <Badge variant="green"><ShieldCheck size={13} /> Tersimpan lokal</Badge>
           <div className="w-52">{searchBox}</div>
           <Button variant="outline" onClick={quickExport}><Download size={16} />Quick Export</Button>
-          <Button variant="outline" onClick={() => { resetDemoData(); onReset(); }}><RotateCcw size={16} />Reset Demo</Button>
+          <Button variant="outline" onClick={resetDemo}><RotateCcw size={16} />Reset Demo</Button>
         </div>
       </div>
       <div className="hidden items-center gap-2 md:flex">
@@ -58,7 +59,7 @@ export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings, 
           <Input value={query} onChange={e => { setQuery(e.target.value); setOpen(e.target.value.length >= 2); }} onFocus={() => query.length >= 2 && setOpen(true)} placeholder="Cari global..." aria-label="Cari global" className="w-56 border-slate-200 bg-slate-50 pl-9 focus:bg-white" />
         </div>
         <Button variant="outline" className="h-10" onClick={quickExport}><Download size={16} />Quick Export</Button>
-        <Button variant="outline" className="h-10" onClick={() => { resetDemoData(); onReset(); }}><RotateCcw size={16} />Reset Demo</Button>
+        <Button variant="outline" className="h-10" onClick={resetDemo}><RotateCcw size={16} />Reset Demo</Button>
       </div>
       <Dialog open={open}>
         <div className="mb-4 flex items-center justify-between">
