@@ -56,3 +56,12 @@ export const formatExportDate = (value: string | Date) => {
   const date = toDate(value);
   return date ? format(date, 'dd/MM/yyyy') : safeString(value);
 };
+
+
+export function parseAmount(value: unknown): number {
+  return parseNumber(value);
+}
+
+export function normalizeSearchText(value: unknown): string {
+  return safeString(value).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').trim();
+}

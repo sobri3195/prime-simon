@@ -21,6 +21,7 @@ type PreparedExport<T> = {
 
 const getTimestamp = () => format(new Date(), 'yyyyMMdd-HHmm');
 const withExtension = (filename: string, extension: string) => {
+  if (new RegExp(`\\.${extension}$`, 'i').test(filename)) return filename;
   const base = filename.replace(new RegExp(`\\.${extension}$`, 'i'), '');
   return `${base}-${getTimestamp()}.${extension}`;
 };
@@ -55,6 +56,10 @@ export function prepareExportRows<T>(params: { rows: T[]; columns: ExportColumn<
     body: rows.map((row) => exportColumns.map((column) => normalizeExportValue(row, column))),
     footer,
   };
+}
+
+export function downloadBlob(content: BlobPart | BlobPart[], filename: string, mimeType: string): void {
+  downloadFile(filename, content, mimeType);
 }
 
 export function downloadFile(filename: string, content: BlobPart | BlobPart[], mimeType: string): void {
@@ -213,6 +218,28 @@ export function printTable<T>(params: { title?: string; subtitle?: string; rows:
   const prepared = prepareExportRows(params);
   const rows = [prepared.headers, ...prepared.body, ...(prepared.footer ? [prepared.footer] : [])];
   const html = `<!doctype html><html><head><title>${xmlEscape(params.title || 'Print')}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#111827}h1{font-size:20px;margin:0 0 4px}.meta{color:#64748b;margin-bottom:16px}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #cbd5e1;padding:6px;text-align:left}th,tfoot td{background:#f1f5f9;font-weight:700}</style></head><body><h1>${xmlEscape(params.title || '')}</h1><div class="meta">${xmlEscape(params.subtitle || '')}<br/>Dicetak ${xmlEscape(new Date().toLocaleString('id-ID'))}</div><table><thead><tr>${prepared.headers.map((h) => `<th>${xmlEscape(h)}</th>`).join('')}</tr></thead><tbody>${prepared.body.map((row) => `<tr>${row.map((cell) => `<td>${xmlEscape(cell)}</td>`).join('')}</tr>`).join('')}</tbody>${prepared.footer ? `<tfoot><tr>${prepared.footer.map((cell) => `<td>${xmlEscape(cell)}</td>`).join('')}</tr></tfoot>` : ''}</table><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),300)}</script></body></html>`;
+  const popup = window.open('', '_blank');
+  if (!popup) return;
+  popup.document.open();
+  popup.document.write(html);
+  popup.document.close();
+}
+
+
+export function exportToCsv<T>(rows: T[], columns: ExportColumn<T>[], filename: string): void {
+  exportToCSV({ filename, rows, columns, includeFooter: true });
+}
+
+export function exportToJson<T>(payload: Record<string, unknown> & { rows: T[] }, filename: string): void {
+  downloadFile(filename, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
+}
+
+export function printVoucherTable<T>(rows: T[], columns: ExportColumn<T>[], meta: { appName: string; module: string; title: string; period: string; totalAmount: number; totalRows: number; filters?: unknown; visibleColumns?: unknown }): void {
+  const prepared = prepareExportRows({ rows, columns, includeFooter: true });
+  const header = prepared.headers.map((h) => `<th>${xmlEscape(h)}</th>`).join('');
+  const body = prepared.body.map((row) => `<tr>${row.map((cell) => `<td>${xmlEscape(cell)}</td>`).join('')}</tr>`).join('');
+  const footer = prepared.footer ? `<tfoot><tr>${prepared.footer.map((cell) => `<td>${xmlEscape(cell)}</td>`).join('')}</tr></tfoot>` : '';
+  const html = `<!doctype html><html><head><title>${xmlEscape(meta.title)}</title><style>@media print{@page{size:A4 portrait;margin:12mm}}body{font-family:Arial,sans-serif;margin:24px;color:#111827}.eyebrow{font-size:12px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:.12em}h1{font-size:20px;margin:4px 0}.meta{margin:0 0 16px;color:#64748b;font-size:12px}.summary{display:flex;gap:16px;margin-bottom:14px;font-size:12px}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #cbd5e1;padding:6px;text-align:left;vertical-align:top}th,tfoot td{background:#f1f5f9;font-weight:700}</style></head><body><div class="eyebrow">${xmlEscape(meta.appName)} • ${xmlEscape(meta.module)}</div><h1>${xmlEscape(meta.title)}</h1><p class="meta">Periode aktif: ${xmlEscape(meta.period)}<br/>Tanggal print: ${xmlEscape(new Date().toLocaleString('id-ID'))}</p><div class="summary"><strong>Total rows: ${xmlEscape(meta.totalRows)}</strong><strong>Total amount: ${xmlEscape(meta.totalAmount)}</strong></div><table><thead><tr>${header}</tr></thead><tbody>${body || `<tr><td colspan="${prepared.headers.length}">Data tidak ditemukan</td></tr>`}</tbody>${footer}</table><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),300)}</script></body></html>`;
   const popup = window.open('', '_blank');
   if (!popup) return;
   popup.document.open();
