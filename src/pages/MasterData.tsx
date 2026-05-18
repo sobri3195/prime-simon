@@ -92,7 +92,7 @@ function ProfileSettings({ profile, setProfile }: { profile: ClinicProfile; setP
   const secondaryFields = config.formFields?.filter((field) => field.section === 'secondary') ?? [];
   return (
     <div className="space-y-4">
-      {saved && <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800"><CheckCircle2 className="mr-2 inline" size={16} />Profil tersimpan lokal untuk Finance Operations.</Alert>}
+      {saved && <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800"><CheckCircle2 className="mr-2 inline" size={16} />Profil berhasil disimpan.</Alert>}
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Informasi Klinik</CardTitle><p className="text-sm text-slate-500">Identitas yang muncul di dashboard, print, dan export.</p></CardHeader>

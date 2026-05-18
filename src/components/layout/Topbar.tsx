@@ -46,7 +46,7 @@ export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings, 
         </div>
         <div className="hidden min-w-0 flex-1 items-center justify-end gap-2 md:flex">
           <Badge variant="outline" className="max-w-[260px] truncate">Periode aktif: {periodText}</Badge>
-          <Badge variant="green"><ShieldCheck size={13} /> Tersimpan lokal</Badge>
+          <Badge variant="green"><ShieldCheck size={13} /> Tersimpan</Badge>
           <div className="w-52">{searchBox}</div>
           <Button variant="outline" onClick={quickExport}><Download size={16} />Quick Export</Button>
           <Button variant="outline" onClick={resetDemo}><RotateCcw size={16} />Reset Demo</Button>
