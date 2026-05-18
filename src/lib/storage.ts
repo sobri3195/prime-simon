@@ -2,7 +2,7 @@ import type { AppData, AuditEntry } from './types';
 import { createSeedData } from './seed';
 
 export const STORAGE_PREFIX = 'kum-fino-v1';
-export const appName = 'Prime Klinik';
+export const appName = 'Klinik Utama Prime Mata';
 export const storageVersion = '1.0.0';
 export const storageKeys = ['clinic-profile','doctors','employees','vendors','payers','coa','revenue-transactions','doctor-fees','payment-requests','cash-requests','vouchers','cashier-daily-reports','ar-items','ap-items','inventory-items','inventory-movements','fixed-assets','tax-items','attendance','payroll','settings','ppn-ledger','audit-trail'] as const;
 export type StorageKey = typeof storageKeys[number];
@@ -31,6 +31,17 @@ export function writeStorage<K extends StorageKey>(key: K, value: AppData[K]) { 
 export function seedIfEmpty() {
   const seed = createSeedData();
   storageKeys.forEach((k) => { if (localStorage.getItem(fullKey(k)) === null) writeStorage(k, seed[k] as never); });
+
+  const profile = readStorage('clinic-profile');
+  if (profile.name === 'Prime Klinik' || profile.clinicCode === 'PK') {
+    writeStorage('clinic-profile', seed['clinic-profile']);
+  }
+
+  const settings = readStorage('settings');
+  if (settings.documentPrefixes.request === 'PK-KEU') {
+    writeStorage('settings', { ...settings, documentPrefixes: seed.settings.documentPrefixes });
+  }
+
   localStorage.setItem(fullKey('seeded'), localStorage.getItem(fullKey('seeded')) || new Date().toISOString());
 }
 export const ensureSeedData = seedIfEmpty;
