@@ -51,3 +51,9 @@ export const doctorFeeNet=(ri:number,rj:number,additional:number,deduction:numbe
 export const attendanceDeduction=(e:Employee,a:{absentWithoutNotice:number;sickWithoutLetter:number;sickWithLetter:number;unpaidLeave:number;noFingerprint:number})=>a.absentWithoutNotice*((e.mealAllowance+e.transportAllowance)*2)+a.sickWithoutLetter*(e.mealAllowance+e.transportAllowance)+a.sickWithLetter*e.transportAllowance+a.unpaidLeave*(e.mealAllowance+e.transportAllowance)+a.noFingerprint*e.transportAllowance;
 export const payrollCalc=(basicSalary:number,fixedAllowances:number,variableAllowances:number,deductions:number[])=>{const grossSalary=basicSalary+fixedAllowances+variableAllowances,totalDeduction=sum(deductions);return{grossSalary,totalDeduction,takeHomePay:grossSalary-totalDeduction}};
 export const ppnBalance=(previousBalance:number,debit:number,credit:number,normal:'Debit'|'Credit')=>normal==='Credit'?previousBalance-debit+credit:previousBalance+debit-credit;
+
+export type AbsenceDeductionResult={amount:number;status:'waiting_rules'|'ready';label:string};
+export const calculateAbsenceDeduction=(row:{absentWithoutNotice:number;sickWithoutLetter:number;sickWithLetter:number;noFingerprint:number},deductionRules?:unknown[]):AbsenceDeductionResult=>{
+  if(!deductionRules||deductionRules.length===0){return{amount:0,status:'waiting_rules',label:'Menunggu aturan'}};
+  return{amount:0,status:'ready',label:'Rp 0'};
+};
