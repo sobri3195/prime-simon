@@ -230,7 +230,7 @@ export function DataTable<T extends Record<string, unknown> | object>({
 
   const ensureHasData = () => {
     if (sortedRows.length > 0) return true;
-    toast.error('Tidak ada data untuk diexport');
+    toast.error('Belum ada data untuk diekspor.');
     return false;
   };
 
@@ -245,7 +245,7 @@ export function DataTable<T extends Record<string, unknown> | object>({
       if (type === 'print') { printTable({ ...exportPayload, title: title || 'Data', subtitle: description }); toast.success('Print dibuka'); }
     } catch (error) {
       console.error(error);
-      toast.error(type === 'copy' ? 'Gagal menyalin data' : 'Tidak ada data untuk diexport');
+      toast.error(type === 'copy' ? 'Gagal menyalin data' : 'Belum ada data untuk diekspor.');
     }
   };
 
