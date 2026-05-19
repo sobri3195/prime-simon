@@ -63,3 +63,39 @@ export function formatPercent(value: number) {
   const abs = Math.abs(value);
   return `${abs >= 10 ? abs.toFixed(0) : abs.toFixed(1)}%`;
 }
+
+export type GroupedDoctorRevenue = {
+  doctorName: string;
+  totalRevenue: number;
+  percentage: number;
+  payerBreakdown: Record<string, number>;
+};
+
+export function filterRevenueByPayer(rows: RevenueTransaction[], payer: string) {
+  if (!payer || payer === 'All') return rows;
+  return rows.filter((row) => (row.payerName || row.payerType) === payer || row.payerType === payer);
+}
+
+export function groupRevenueByDoctor(rows: RevenueTransaction[]): GroupedDoctorRevenue[] {
+  const grouped = rows.reduce<Record<string, GroupedDoctorRevenue>>((acc, row) => {
+    const doctorName = (row as any).doctorName || row.doctorId || 'Dokter tidak diketahui';
+    if (!acc[doctorName]) {
+      acc[doctorName] = { doctorName, totalRevenue: 0, percentage: 0, payerBreakdown: {} };
+    }
+    const payerKey = row.payerName || row.payerType || 'Tidak diketahui';
+    acc[doctorName].totalRevenue += row.netAmount;
+    acc[doctorName].payerBreakdown[payerKey] = (acc[doctorName].payerBreakdown[payerKey] || 0) + row.netAmount;
+    return acc;
+  }, {});
+  return Object.values(grouped);
+}
+
+export function calculateDoctorRevenuePercentage(groupedRows: GroupedDoctorRevenue[]) {
+  const totalRevenue = groupedRows.reduce((sum, row) => sum + row.totalRevenue, 0);
+  if (totalRevenue <= 0) return groupedRows.map((row) => ({ ...row, percentage: 0 }));
+  return groupedRows.map((row) => ({ ...row, percentage: (row.totalRevenue / totalRevenue) * 100 }));
+}
+
+export function getTopDoctorsByRevenue(rows: GroupedDoctorRevenue[], limit = 10) {
+  return [...rows].sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, limit);
+}
