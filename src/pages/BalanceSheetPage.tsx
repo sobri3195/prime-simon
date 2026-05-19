@@ -1,6 +1,8 @@
 import * as React from 'react';
 import { format } from 'date-fns';
 import { PageHeader } from '@/components/common/PageHeader';
+import { ExpandableFinancialRow } from '@/components/financialReports/ExpandableFinancialRow';
+import { getBalanceSheetDetails } from '@/utils/financialReportDetails';
 import type { APItem, ARItem, FixedAsset, InventoryItem } from '@/lib/types';
 import {
   calculateBalanceSheet,
@@ -73,6 +75,8 @@ export function BalanceSheetPage({ ar, ap, assets, inventory, activeDateTo }: { 
 
   const printReport = () => window.print();
   const hasData = calculated.rows.length > 0;
+  const [expanded, setExpanded] = React.useState<string[]>([]);
+  const toggleExpanded = (id: string) => setExpanded((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
 
   return <div className="space-y-4" id="print-neraca">
     <PageHeader title="Neraca" description="Aset, kewajiban, dan ekuitas berdasarkan posisi keuangan per tanggal tertentu." />
@@ -99,16 +103,9 @@ export function BalanceSheetPage({ ar, ap, assets, inventory, activeDateTo }: { 
     {summary.status !== 'Balance' && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Neraca belum balance. Periksa kembali akun aset, kewajiban, dan ekuitas.</div>}
 
     {!hasData ? <div className="rounded-xl border border-dashed bg-white p-6 text-sm text-slate-600"><p>Belum ada data neraca pada tanggal ini.</p><p>Coba pilih tanggal lain atau pastikan transaksi sudah tersedia.</p></div> : <div className="overflow-x-auto rounded-xl border bg-white">
-      <table className="min-w-[760px] w-full text-sm">
-        <tbody>
-          {(['Asset', 'Liability', 'Equity'] as const).map((category) => <React.Fragment key={category}>
-            <tr className="bg-slate-50 font-semibold"><td className="p-3">{category === 'Asset' ? 'Aset' : category === 'Liability' ? 'Kewajiban' : 'Ekuitas'}</td><td className="p-3 text-right">Jumlah</td></tr>
-            {detailByCategory[category].map((item) => <tr key={`${category}-${item.name}`} className="border-t"><td className="p-3 pl-8">{item.name}</td><td className="p-3 text-right">{formatCurrency(item.amount)}</td></tr>)}
-            <tr className="border-t font-semibold"><td className="p-3">Total {category === 'Asset' ? 'Aset' : category === 'Liability' ? 'Kewajiban' : 'Ekuitas'}</td><td className="p-3 text-right">{formatCurrency(category === 'Asset' ? summary.totalAssets : category === 'Liability' ? summary.totalLiabilities : summary.totalEquity)}</td></tr>
-          </React.Fragment>)}
-        </tbody>
-      </table>
-    </div>}
+      <table className="min-w-[760px] w-full text-sm"><tbody>
+        {[{id:'asset',label:'Aset',amount:summary.totalAssets},{id:'liability',label:'Kewajiban',amount:summary.totalLiabilities},{id:'equity',label:'Ekuitas',amount:summary.totalEquity},{id:'status',label:'Status Balance',amount:summary.difference}].map((row)=>{ const detail=getBalanceSheetDetails(row.id,asOfDate,{ar,ap,assets,inventory,activeDateTo}); return <ExpandableFinancialRow key={row.id} id={row.id} label={row.label} amount={row.amount} details={detail.details} formula={(detail as any).formula} isExpanded={expanded.includes(row.id)} onToggle={toggleExpanded} status={row.id==='status'&&summary.status!=='Balance'?'warning':'default'} type={row.id==='status'?'total':'normal'}/>;})}
+      </tbody></table></div>}
 
     <div className="no-print flex flex-wrap gap-2">
       <button className="rounded border px-3 py-1" onClick={() => exportFile('csv')}>Export CSV</button>
