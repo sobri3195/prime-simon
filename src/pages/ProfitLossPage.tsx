@@ -5,6 +5,8 @@ import { id } from 'date-fns/locale';
 import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader } from '@/components/common/PageHeader';
 import { formatRupiah } from '@/lib/format';
+import { ExpandableFinancialRow } from '@/components/financialReports/ExpandableFinancialRow';
+import { getProfitLossDetails } from '@/utils/financialReportDetails';
 import type { DoctorFee, PayrollRecord, RevenueTransaction } from '@/lib/types';
 import {
   calculateProfitLoss,
@@ -77,6 +79,10 @@ export function ProfitLossPage({ revenue, fees, payroll }: { revenue: RevenueTra
       const calc = calculateProfitLoss(effectiveRows, effectiveFees, effectivePayroll);
       return { totalRevenue: calc.revenue, totalExpenses: calc.totalExpenses, grossProfit: calc.grossProfit, ebitda: calc.ebitda, netProfit: calc.netProfit, netMargin: calc.netMargin };
     })();
+
+
+  const [expanded, setExpanded] = React.useState<string[]>([]);
+  const toggleExpanded = (id: string) => setExpanded((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
 
   const exportPayload = {
     appName: 'Klinik Utama Prime Mata',
@@ -154,11 +160,7 @@ export function ProfitLossPage({ revenue, fees, payroll }: { revenue: RevenueTra
       <table className="min-w-[900px] w-full text-sm">
         <thead><tr className="bg-slate-50 text-left"><th className="p-3">Akun / Komponen</th>{filterMode === 'monthRange' ? selectedMonths.sort().map((m) => <th key={m} className="p-3 text-right">{formatMonthLabel(m)}</th>) : <th className="p-3 text-right">Nilai</th>}<th className="p-3 text-right">Total</th></tr></thead>
         <tbody>
-          {['Pendapatan Pelayanan Medis', 'Pendapatan Farmasi', 'Pendapatan Lainnya', 'Beban Jasa Medis', 'Beban Persediaan', 'Beban Farmasi', 'Beban Gaji', 'Beban Administrasi', 'Beban Utilitas', 'Beban Penyusutan', 'Beban Lainnya', 'EBITDA', 'Laba Bersih', 'Margin Bersih'].map((name) => {
-            const values = monthlyData.map((m) => name === 'EBITDA' ? m.ebitda : name === 'Laba Bersih' ? m.netProfit : name === 'Margin Bersih' ? m.netMargin : m.groups[name as keyof typeof m.groups] || 0);
-            const total = name === 'Margin Bersih' ? summary.netMargin : values.reduce((a, b) => a + b, 0);
-            return <tr key={name} className={`${name.includes('Laba') || name.includes('EBITDA') ? 'font-semibold' : ''}`}><td className="p-3">{name}</td>{values.map((v, i) => <td key={i} className="p-3 text-right">{name === 'Margin Bersih' ? formatPercent(v) : formatCurrency(v)}</td>)}<td className={`p-3 text-right font-semibold ${name === 'Laba Bersih' && total < 0 ? 'text-red-600' : ''}`}>{name === 'Margin Bersih' ? formatPercent(total) : formatCurrency(total)}</td></tr>;
-          })}
+          {[{id:'revenue',label:'Pendapatan Usaha',amount:summary.totalRevenue},{id:'direct',label:'Beban Pokok / Beban Langsung',amount:monthlyData.reduce((a,m)=>a+(m.groups['Beban Jasa Medis']||0)+(m.groups['Beban Persediaan']||0)+(m.groups['Beban Farmasi']||0),0)},{id:'operational',label:'Beban Operasional',amount:monthlyData.reduce((a,m)=>a+(m.groups['Beban Gaji']||0)+(m.groups['Beban Administrasi']||0)+(m.groups['Beban Utilitas']||0)+(m.groups['Beban Penyusutan']||0)+(m.groups['Beban Lainnya']||0),0)},{id:'ebitda',label:'EBITDA',amount:summary.ebitda},{id:'net',label:'Laba Bersih',amount:summary.netProfit}].map((row)=>{ const detail=getProfitLossDetails(row.id,effectiveRows,effectiveFees,effectivePayroll); return <ExpandableFinancialRow key={row.id} id={row.id} label={row.label} amount={row.amount} details={detail.details} formula={detail.formula} isExpanded={expanded.includes(row.id)} onToggle={toggleExpanded} type={row.id==='ebitda'||row.id==='net'?'total':'normal'}/>; })}
         </tbody>
       </table>
     </div>}
