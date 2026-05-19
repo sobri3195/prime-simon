@@ -2,6 +2,7 @@ import { formatRupiah, monthNameID } from '@/lib/format';
 import type { RevenueTransaction } from '@/lib/types';
 
 const PAYER_COLORS = ['#2563eb', '#0ea5e9', '#14b8a6', '#b45309', '#8b5cf6', '#ec4899'];
+const DEFAULT_PAYER_COLOR = '#64748b';
 
 export type GroupedPayerRevenue = { payer: string; amount: number; percentage: number; color: string };
 
@@ -20,6 +21,71 @@ export function groupRevenueByPayer(rows: RevenueTransaction[]): GroupedPayerRev
     .sort((a, b) => b.amount - a.amount);
 
   return calculatePayerPercentages(data);
+}
+
+export function filterRevenueByMonth(rows: RevenueTransaction[], year: number, month: number) {
+  const range = getMonthRange(year, month);
+  return filterRevenueByDateRange(rows, range.startDate, range.endDate);
+}
+
+export function buildPayerColorMap(rows: RevenueTransaction[]) {
+  const payerNames = Array.from(new Set(rows.map((row) => row.payerName || row.payerType).filter(Boolean))).sort();
+  return payerNames.reduce<Record<string, string>>((acc, payer, index) => {
+    acc[payer] = PAYER_COLORS[index % PAYER_COLORS.length];
+    return acc;
+  }, {});
+}
+
+export function groupRevenueByPayerWithColors(rows: RevenueTransaction[], payerColorMap: Record<string, string>) {
+  const grouped = groupRevenueByPayer(rows);
+  return grouped.map((row) => ({ ...row, color: payerColorMap[row.payer] || DEFAULT_PAYER_COLOR }));
+}
+
+export type PeriodPayerSeries = {
+  periodKey: string;
+  periodLabel: string;
+  totalRevenue: number;
+  payers: GroupedPayerRevenue[];
+  topPayer: string;
+  payerCount: number;
+};
+
+export function buildPayerPieSeriesByPeriods(rows: RevenueTransaction[], selectedPeriods: string[]) {
+  const payerColorMap = buildPayerColorMap(rows);
+  const sortedPeriods = [...selectedPeriods].sort();
+  return sortedPeriods.map((key) => {
+    const [year, month] = key.split('-').map(Number);
+    const periodRows = filterRevenueByMonth(rows, year, month);
+    const payers = groupRevenueByPayerWithColors(periodRows, payerColorMap);
+    return {
+      periodKey: key,
+      periodLabel: `${monthNameID(month)} ${year}`,
+      totalRevenue: payers.reduce((sum, row) => sum + row.amount, 0),
+      payers,
+      topPayer: payers[0]?.payer || '-',
+      payerCount: payers.length,
+    } satisfies PeriodPayerSeries;
+  });
+}
+
+export function calculatePeriodComparison(selectedPeriodsData: PeriodPayerSeries[]) {
+  return selectedPeriodsData.map((period, index) => {
+    const previous = selectedPeriodsData[index - 1];
+    if (!previous) {
+      return { periodKey: period.periodKey, periodLabel: period.periodLabel, totalRevenue: period.totalRevenue, differenceAmount: 0, differencePercent: 0, direction: 'flat' as const };
+    }
+    const differenceAmount = period.totalRevenue - previous.totalRevenue;
+    const differencePercent = previous.totalRevenue === 0 ? (period.totalRevenue > 0 ? 100 : 0) : (differenceAmount / previous.totalRevenue) * 100;
+    return {
+      periodKey: period.periodKey,
+      periodLabel: period.periodLabel,
+      totalRevenue: period.totalRevenue,
+      previousPeriodLabel: previous.periodLabel,
+      differenceAmount,
+      differencePercent,
+      direction: differenceAmount > 0 ? 'up' as const : differenceAmount < 0 ? 'down' as const : 'flat' as const,
+    };
+  });
 }
 
 export function calculatePayerPercentages(groupedRows: GroupedPayerRevenue[]) {
