@@ -6,6 +6,38 @@ export const groupSum=<T,>(items:T[],key:(i:T)=>string,value:(i:T)=>number)=>Obj
 export function revenueSummary(rows:RevenueTransaction[],base=new Date()){const totalRevenue=sum(rows.map(r=>r.netAmount));const month=getMonth(base),year=getYear(base);const byMonth=(m:number,y:number)=>sum(rows.filter(r=>getMonth(parseISO(r.date))===m&&getYear(parseISO(r.date))===y).map(r=>r.netAmount));const revenueCurrentMonth=byMonth(month,year);const revenuePreviousMonth=month===0?byMonth(11,year-1):byMonth(month-1,year);const revenueSameMonthLastYear=byMonth(month,year-1);const growthPercentage=(current:number,comparison:number)=>comparison?((current-comparison)/comparison)*100:0;return{totalRevenue,revenueByPayer:groupSum(rows,r=>r.payerType,r=>r.netAmount),revenueByDoctor:groupSum(rows,r=>r.doctorId,r=>r.netAmount),revenueByServiceCategory:groupSum(rows,r=>r.serviceCategory,r=>r.netAmount),revenueCurrentMonth,revenuePreviousMonth,revenueSameMonthLastYear,growthVsPrevious:growthPercentage(revenueCurrentMonth,revenuePreviousMonth),growthVsLastYear:growthPercentage(revenueCurrentMonth,revenueSameMonthLastYear)}}
 export function doctorSalesRanking(transactions:RevenueTransaction[],doctors:Doctor[],fees:DoctorFee[]=[]){const totals=new Map<string,number>();transactions.forEach(r=>totals.set(r.doctorId,(totals.get(r.doctorId)||0)+r.netAmount));fees.forEach(f=>totals.set(f.doctorId,(totals.get(f.doctorId)||0)+f.netAmount));const grandTotal=sum([...totals.values()]);return [...totals].map(([doctorId,total],i)=>({rank:i+1,doctorId,doctorName:doctors.find(d=>d.id===doctorId)?.name||doctorId,total,percentage:grandTotal?total/grandTotal*100:0})).sort((a,b)=>b.total-a.total).map((r,i)=>({...r,rank:i+1}))}
 export const reportHighlight=(target:number,realization:number)=>{const achievementPercentage=target?realization/target*100:0;return{target,realization,achievementPercentage,status:achievementPercentage>=100?'Tercapai':achievementPercentage>=80?'Perlu Perhatian':'Tidak Tercapai'}};
+
+export type AchievementType='revenue'|'cost'|'receivable'|'payable'|'neutral';
+export function getAchievementStatus(value:number,type:AchievementType){
+  if(type==='receivable'||type==='payable') return value<=80?'Aman':value<=100?'Perlu Dipantau':'Perlu Perhatian';
+  if(type==='revenue') return value>=100?'Tercapai':value>=80?'Hampir Tercapai':'Tidak Tercapai';
+  if(type==='cost') return value<=100?'Tercapai':value<=120?'Hampir Tercapai':'Tidak Tercapai';
+  return value>=100?'Tercapai':value>=80?'Hampir Tercapai':'Tidak Tercapai';
+}
+export function calculateAchievement({target,actual,type}:{target:number;actual:number;type:AchievementType}){
+  const achievementPercent=target?actual/target*100:0;
+  const gap=actual-target;
+  const status=getAchievementStatus(achievementPercent,type);
+  const statusColor=status==='Tercapai'||status==='Aman'?'bg-emerald-500':status==='Hampir Tercapai'||status==='Perlu Dipantau'?'bg-amber-500':status==='Perlu Perhatian'||status==='Tidak Tercapai'?'bg-red-500':'bg-blue-500';
+  const insight=gap<0?`Masih terdapat gap Rp ${new Intl.NumberFormat('id-ID').format(Math.abs(gap))} dari target.`:gap>0?`Melebihi target sebesar Rp ${new Intl.NumberFormat('id-ID').format(gap)}.`:'Sesuai dengan target.';
+  return {achievementPercent,gap,status,statusColor,insight};
+}
+export function generateReportHighlightAnalysis(summary:{target:number;realization:number;achievementPercentage:number},breakdowns:any[]){
+  const revenue=breakdowns.filter(b=>b.type==='revenue');
+  const top=[...revenue].sort((a,b)=>b.actual-a.actual)[0];
+  const lowest=[...revenue].sort((a,b)=>a.achievementPercent-b.achievementPercent)[0];
+  const largestGap=[...revenue].sort((a,b)=>a.gap-b.gap)[0];
+  const risks=breakdowns.filter(b=>['receivable','payable'].includes(b.type) && b.achievementPercent>100);
+  return [
+    `Total realisasi baru mencapai ${summary.achievementPercentage.toFixed(2).replace('.',',')}% dari target bulan ini.`,
+    top?`Capaian tertinggi berasal dari ${top.label} dengan kontribusi Rp ${new Intl.NumberFormat('id-ID').format(top.actual)}.`:'Belum ada komponen pendapatan yang dapat dibandingkan.',
+    lowest?`Capaian terendah saat ini terdapat pada ${lowest.label} di level ${lowest.achievementPercent.toFixed(2).replace('.',',')}%.`:'',
+    largestGap?`Gap terbesar terdapat pada ${largestGap.label} sebesar ${largestGap.gap<0?'-':'+'}Rp ${new Intl.NumberFormat('id-ID').format(Math.abs(largestGap.gap))}.`:'',
+    risks.length?`${risks.map(r=>r.label).join(' dan ')} melebihi batas target, perlu follow-up intensif.`:'Piutang/hutang masih dalam batas yang dapat dipantau.',
+    'Disarankan evaluasi payer terbesar, produktivitas dokter, dan percepatan follow-up piutang.',
+  ].filter(Boolean);
+}
+
 export function profitLoss(transactions:RevenueTransaction[],fees:DoctorFee[]=[],payroll:PayrollRecord[]=[]){const totalPendapatan=sum(transactions.map(t=>t.grossAmount));const totalDiskon=sum(transactions.map(t=>t.discount));const pendapatanBersih=sum(transactions.map(t=>t.netAmount));const bebanPokok=sum(fees.map(f=>f.netAmount))+pendapatanBersih*.18;const labaBruto=pendapatanBersih-bebanPokok;const bebanOperasional=sum(payroll.map(p=>p.grossSalary))+pendapatanBersih*.12;const ebitda=labaBruto-bebanOperasional;const labaRugiBersih=ebitda-pendapatanBersih*.025;return{groups:{'Pendapatan Usaha':totalPendapatan,'Pendapatan Pelayanan Medis':sum(transactions.filter(t=>['Konsultasi','Tindakan Medis','Operasi','Laboratorium'].includes(t.serviceCategory)).map(t=>t.netAmount)),'Pendapatan Farmasi':sum(transactions.filter(t=>t.serviceCategory==='Farmasi').map(t=>t.netAmount)),'Pendapatan Optik':sum(transactions.filter(t=>t.serviceCategory==='Optik').map(t=>t.netAmount)),Diskon:totalDiskon,'Beban Pokok Pendapatan':bebanPokok,'Beban Operasional':bebanOperasional,'Beban Administrasi':bebanOperasional*.3,'Pendapatan/Beban Lainnya':-pendapatanBersih*.025},totalPendapatan,totalDiskon,pendapatanBersih,bebanPokok,labaBruto,bebanOperasional,ebitda,labaRugiBersih,marginLabaBruto:pendapatanBersih?labaBruto/pendapatanBersih*100:0,marginLabaBersih:pendapatanBersih?labaRugiBersih/pendapatanBersih*100:0}}
 export const budgetRealization=(budgetAmount:number,realizationAmount:number)=>({budgetAmount,realizationAmount,percentage:budgetAmount?realizationAmount/budgetAmount*100:0,variance:realizationAmount-budgetAmount,status:realizationAmount>budgetAmount?'Over Budget':'Under Budget'});
 export function agingAR(items:ARItem[],asOf=new Date()){return groupAging(items,i=>i.payerName,i=>i.serviceDate||i.invoiceDate,i=>i.outstandingAmount,asOf)}

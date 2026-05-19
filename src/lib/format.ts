@@ -65,3 +65,6 @@ export function parseAmount(value: unknown): number {
 export function normalizeSearchText(value: unknown): string {
   return safeString(value).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').trim();
 }
+
+export const formatGap=(value:number)=>`${value<0?'-':'+'}${formatCurrency(Math.abs(parseNumber(value)))}`;
+export const getStatusBadgeClass=(status:string)=>status==='Tercapai'||status==='Aman'?'bg-emerald-50 text-emerald-700':status==='Hampir Tercapai'||status==='Perlu Dipantau'?'bg-amber-50 text-amber-700':status==='Tidak Tercapai'||status==='Perlu Perhatian'?'bg-red-50 text-red-700':'bg-blue-50 text-blue-700';
