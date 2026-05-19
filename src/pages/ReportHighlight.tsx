@@ -57,7 +57,7 @@ export function ReportHighlight({
       { key: 'piutang', label: 'Piutang Outstanding', type: 'receivable', target: 10_000_000, actual: receivableOutstanding || 18_000_000, description: 'Nilai piutang berjalan dibanding batas maksimal.' },
       { key: 'kasir', label: 'Kasir Harian', type: 'revenue', target: 8_000_000, actual: cashierDaily || 1_100_000, description: 'Akumulasi penerimaan tunai harian dari kasir.' },
       { key: 'kartu', label: 'Kartu Debit / Kredit', type: 'revenue', target: 6_000_000, actual: debitCredit || 800_000, description: 'Total transaksi dari kartu debit dan kartu kredit.' },
-      { key: 'hutang', label: 'Vendor / Hutang', type: 'payable', target: 5_000_000, actual: payableOutstanding || 7_200_000, description: 'Nilai hutang vendor berjalan terhadap batas maksimal.' },
+      { key: 'hutang', label: 'Hutang Outstanding', type: 'payable', target: 5_000_000, actual: payableOutstanding || 7_200_000, description: 'Nilai hutang outstanding berjalan terhadap batas maksimal.' },
     ];
   }, [monthRevenue, monthArItems, monthApItems, monthCashier]);
 
