@@ -143,6 +143,57 @@ function ManagedTable({ config, rows, setRows }: { config: ModuleConfig<Row>; ro
   );
 }
 
+
+function MasterPlaceholder({
+  title,
+  description,
+  searchPlaceholder,
+  emptyTitle,
+  emptyDescription,
+  ctaLabel,
+  columns,
+}: {
+  title: string;
+  description: string;
+  searchPlaceholder: string;
+  emptyTitle: string;
+  emptyDescription: string;
+  ctaLabel?: string;
+  columns: string[];
+}) {
+  // NOTE: Kolom di bawah masih placeholder dan akan diganti setelah tabel resmi Existing Prime dikonfirmasi.
+  const placeholderRows = React.useMemo(() => [] as Row[], []);
+  const placeholderColumns = React.useMemo(
+    () => columns.map((column) => ({ key: column, header: column })),
+    [columns],
+  );
+
+  return (
+    <DataTable
+      title={title}
+      description={description}
+      rows={placeholderRows}
+      columns={placeholderColumns}
+      searchPlaceholder={searchPlaceholder}
+      enableColumnVisibility={false}
+      emptyMessage="Data sedang disiapkan"
+      emptyDescription={`${emptyTitle}. ${emptyDescription}`}
+      emptyAction={
+        ctaLabel ? (
+          <Button type="button" variant="outline" disabled>
+            {ctaLabel}
+          </Button>
+        ) : undefined
+      }
+      toolbarFilters={
+        <Button type="button" variant="outline" disabled>
+          Tambah
+        </Button>
+      }
+    />
+  );
+}
+
 export function MasterData({ activeModule = 'master-profile', profile, setProfile, doctors, setDoctors, employees, setEmployees, vendors, setVendors, payers, setPayers, coa, setCoa, settings, setSettings }: { activeModule?: string; profile: ClinicProfile; setProfile: (v: ClinicProfile) => void; doctors: Doctor[]; setDoctors: (v: Doctor[]) => void; employees: Employee[]; setEmployees: (v: Employee[]) => void; vendors: Vendor[]; setVendors: (v: Vendor[]) => void; payers: Payer[]; setPayers: (v: Payer[]) => void; coa: COA[]; setCoa: (v: COA[]) => void; settings: Settings; setSettings: (v: Settings) => void }) {
   const moduleKey = routeToModule[activeModule] ?? 'clinicProfile';
   const config = moduleConfigs[moduleKey];
@@ -166,7 +217,7 @@ export function MasterData({ activeModule = 'master-profile', profile, setProfil
     <div>
       <PageHeader title={config.title} description={config.subtitle} />
       <div className="mb-5 flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2">{tabs.map((tab) => <Button key={tab.route} variant={moduleKey === tab.key ? 'default' : 'ghost'} className="shrink-0" onClick={() => window.dispatchEvent(new CustomEvent('prime:navigate', { detail: tab.route }))}>{tab.label}</Button>)}</div>
-      {moduleKey === 'clinicProfile' ? <ProfileSettings profile={profile} setProfile={setProfile} /> : <ManagedTable config={config as ModuleConfig<Row>} rows={tableMap[moduleKey as Exclude<MasterKey, 'clinicProfile'>].rows} setRows={tableMap[moduleKey as Exclude<MasterKey, 'clinicProfile'>].setRows} />}
+      {moduleKey === 'clinicProfile' ? <ProfileSettings profile={profile} setProfile={setProfile} /> : moduleKey === 'coa' ? <MasterPlaceholder title="COA" description="Chart of accounts untuk posting jurnal dan laporan keuangan." searchPlaceholder="Cari akun..." emptyTitle="Template COA sedang disiapkan" emptyDescription="Struktur akun akan mengikuti format Existing Prime. Silakan lengkapi tabel COA resmi terlebih dahulu." ctaLabel="Menunggu Data COA" columns={["Kode Akun", "Nama Akun", "Kategori", "Normal Balance", "Status"]} /> : moduleKey === 'costCenters' ? <MasterPlaceholder title="Cost Center" description="Pengelompokan unit biaya untuk kebutuhan budgeting, realisasi, dan laporan keuangan." searchPlaceholder="Cari cost center..." emptyTitle="Template Cost Center sedang disiapkan" emptyDescription="Struktur cost center akan mengikuti format Existing Prime. Data dan kolom resmi akan ditambahkan setelah tabel disiapkan." columns={["Kode Cost Center", "Nama Cost Center", "Departemen", "Status"]} /> : moduleKey === 'serviceCategories' ? <MasterPlaceholder title="Kategori Layanan" description="Pengelompokan layanan klinik untuk mapping tarif, pendapatan, dan laporan." searchPlaceholder="Cari kategori layanan..." emptyTitle="Template Kategori Layanan sedang disiapkan" emptyDescription="Struktur kategori layanan akan mengikuti format Existing Prime. Data resmi akan ditambahkan setelah tabel disiapkan." columns={["Kode Kategori", "Nama Kategori", "Mapping COA", "Status"]} /> : <ManagedTable config={config as ModuleConfig<Row>} rows={tableMap[moduleKey as Exclude<MasterKey, 'clinicProfile'>].rows} setRows={tableMap[moduleKey as Exclude<MasterKey, 'clinicProfile'>].setRows} />}
     </div>
   );
 }
