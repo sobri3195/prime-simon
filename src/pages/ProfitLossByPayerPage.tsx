@@ -1,2 +1,136 @@
-import { DataTable } from '@/components/common/DataTable';import { PageHeader } from '@/components/common/PageHeader';import { formatRupiah } from '@/lib/format';import type { RevenueTransaction } from '@/lib/types';
-export function ProfitLossByPayerPage({revenue}:{revenue:RevenueTransaction[]}){const rows=['Umum','BPJS','Asuransi'].map((p,i)=>{const rs=revenue.filter(r=>r.payerType===p);const revenueAmount=rs.reduce((a,b)=>a+b.netAmount,0),discount=rs.reduce((a,b)=>a+b.discount,0);return{id:p,payer:p,revenueAmount,discount,medicalDiscount:discount*.5,pharmacyDiscount:discount*.3,opticalDiscount:discount*.2,cogs:revenueAmount*.2,net:revenueAmount-revenueAmount*.2}});return <div><PageHeader title="Laba Rugi by Payer" description="Umum, BPJS, Asuransi, total, dan diskon split Pelayanan Medis/Farmasi/Optik."/><DataTable rows={rows} columns={[{key:'payer',header:'Payer',cell:r=>r.payer},{key:'rev',header:'Pendapatan',cell:r=>formatRupiah(r.revenueAmount)},{key:'discMed',header:'Diskon Medis',cell:r=>formatRupiah(r.medicalDiscount)},{key:'discFarm',header:'Diskon Farmasi',cell:r=>formatRupiah(r.pharmacyDiscount)},{key:'discOpt',header:'Diskon Optik',cell:r=>formatRupiah(r.opticalDiscount)},{key:'cogs',header:'Beban Pokok',cell:r=>formatRupiah(r.cogs)},{key:'net',header:'Laba',cell:r=>formatRupiah(r.net),total:rs=>formatRupiah(rs.reduce((a,b)=>a+b.net,0))}]}/></div>}
+import * as React from 'react';
+import { Download, Printer } from 'lucide-react';
+import { PageHeader } from '@/components/common/PageHeader';
+import { Alert, Badge, Button, Card, CardContent, Input, Select } from '@/components/ui/basic';
+import { exportToCSV, exportToExcel, exportToJson, printVoucherTable, type ExportColumn } from '@/lib/export';
+import type { RevenueTransaction } from '@/lib/types';
+
+const APP_NAME = 'Klinik Utama Prime Mata';
+const MODULE_NAME = 'Finance Operations';
+const PAGE_NAME = 'Laba Rugi by Payer';
+
+type FilterMode = 'dateRange' | 'monthRange';
+type MonthView = 'profit' | 'revenue' | 'margin';
+type PayerAggregate = { payer: string; revenue: number; discountMedis: number; discountFarmasi: number; discountOptik: number; totalDiscount: number; netRevenue: number; cogs: number; profit: number; margin: number };
+type MonthMetric = { revenue: number; discountMedis: number; discountFarmasi: number; discountOptik: number; totalDiscount: number; netRevenue: number; cogs: number; profit: number; margin: number };
+type PayerMonthAggregate = { payer: string; months: Record<string, MonthMetric>; total: MonthMetric };
+
+const cogsRate = 0.2;
+const discountSplit = { medis: 0.5, farmasi: 0.3, optik: 0.2 };
+
+const formatCurrency = (value: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value);
+const formatPercent = (value: number) => `${new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(value)}%`;
+const formatMonthLabel = (value: string) => new Date(`${value}-01`).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
+const toMonthKey = (value: string) => value.slice(0, 7);
+const calculateProfitMargin = (profit: number, netRevenue: number) => (netRevenue === 0 ? 0 : (profit / netRevenue) * 100);
+
+const calculatePayerProfitLoss = (rowGroup: RevenueTransaction[]): PayerAggregate => {
+  const revenue = rowGroup.reduce((acc, item) => acc + item.netAmount, 0);
+  const totalDiscount = rowGroup.reduce((acc, item) => acc + item.discount, 0);
+  const discountMedis = totalDiscount * discountSplit.medis;
+  const discountFarmasi = totalDiscount * discountSplit.farmasi;
+  const discountOptik = totalDiscount * discountSplit.optik;
+  const netRevenue = revenue - totalDiscount;
+  const cogs = revenue * cogsRate;
+  const profit = netRevenue - cogs;
+  return { payer: rowGroup[0]?.payerType ?? '-', revenue, discountMedis, discountFarmasi, discountOptik, totalDiscount, netRevenue, cogs, profit, margin: calculateProfitMargin(profit, netRevenue) };
+};
+
+const filterRowsByDateRange = (rows: RevenueTransaction[], startDate: string, endDate: string) => rows.filter((row) => row.date >= startDate && row.date <= endDate);
+const filterRowsByMonths = (rows: RevenueTransaction[], selectedMonths: string[]) => rows.filter((row) => selectedMonths.includes(toMonthKey(row.date)));
+
+const groupProfitLossByPayer = (rows: RevenueTransaction[]): PayerAggregate[] => {
+  const groups = new Map<string, RevenueTransaction[]>();
+  rows.forEach((row) => {
+    const current = groups.get(row.payerType) ?? [];
+    current.push(row);
+    groups.set(row.payerType, current);
+  });
+  return [...groups.values()].map(calculatePayerProfitLoss).sort((a, b) => b.profit - a.profit);
+};
+
+const groupProfitLossByPayerAndMonth = (rows: RevenueTransaction[], selectedMonths: string[]): PayerMonthAggregate[] => {
+  const payerMap = new Map<string, RevenueTransaction[]>();
+  rows.forEach((row) => {
+    const current = payerMap.get(row.payerType) ?? [];
+    current.push(row);
+    payerMap.set(row.payerType, current);
+  });
+  return [...payerMap.entries()].map(([payer, payerRows]) => {
+    const months: Record<string, MonthMetric> = {};
+    selectedMonths.forEach((month) => {
+      const mRows = payerRows.filter((row) => toMonthKey(row.date) === month);
+      const metric = calculatePayerProfitLoss(mRows.length ? mRows : [{ ...payerRows[0], netAmount: 0, discount: 0 }]);
+      months[month] = { ...metric };
+    });
+    const total = calculatePayerProfitLoss(payerRows);
+    return { payer, months, total: { ...total } };
+  }).sort((a, b) => b.total.profit - a.total.profit);
+};
+
+export function ProfitLossByPayerPage({ revenue }: { revenue: RevenueTransaction[] }) {
+  const allMonths = React.useMemo(() => [...new Set(revenue.map((row) => toMonthKey(row.date)))].sort(), [revenue]);
+  const defaultMonth = allMonths[allMonths.length - 1] ?? new Date().toISOString().slice(0, 7);
+  const defaultStartDate = `${defaultMonth}-01`;
+  const defaultEndDate = new Date(Number(defaultMonth.slice(0, 4)), Number(defaultMonth.slice(5, 7)), 0).toISOString().slice(0, 10);
+  const [filterMode, setFilterMode] = React.useState<FilterMode>('dateRange');
+  const [startDate, setStartDate] = React.useState(defaultStartDate);
+  const [endDate, setEndDate] = React.useState(defaultEndDate);
+  const [selectedMonths, setSelectedMonths] = React.useState<string[]>([defaultMonth]);
+  const [monthInput, setMonthInput] = React.useState(defaultMonth);
+  const [monthView, setMonthView] = React.useState<MonthView>('profit');
+
+  const dateError = startDate > endDate ? 'Tanggal awal tidak boleh lebih besar dari tanggal akhir.' : '';
+  const selectedMonthsSorted = [...selectedMonths].sort();
+  const filteredRows = filterMode === 'monthRange' ? filterRowsByMonths(revenue, selectedMonthsSorted) : filterRowsByDateRange(revenue, startDate, endDate);
+  const byPayer = groupProfitLossByPayer(filteredRows);
+  const byPayerAndMonth = groupProfitLossByPayerAndMonth(filteredRows, selectedMonthsSorted);
+
+  const summary = React.useMemo(() => {
+    const totals = byPayer.reduce((acc, row) => ({ revenue: acc.revenue + row.revenue, discount: acc.discount + row.totalDiscount, cogs: acc.cogs + row.cogs, profit: acc.profit + row.profit, netRevenue: acc.netRevenue + row.netRevenue }), { revenue: 0, discount: 0, cogs: 0, profit: 0, netRevenue: 0 });
+    const topPayer = byPayer[0]?.payer ?? '-';
+    const monthProfit = selectedMonthsSorted.map((month) => ({ month, profit: byPayerAndMonth.reduce((acc, payer) => acc + (payer.months[month]?.profit ?? 0), 0) }));
+    const bestMonth = monthProfit.length ? monthProfit.reduce((a, b) => (b.profit > a.profit ? b : a)) : null;
+    const lowestMonth = monthProfit.length ? monthProfit.reduce((a, b) => (b.profit < a.profit ? b : a)) : null;
+    const growth = monthProfit.length > 1 && monthProfit[0].profit !== 0 ? ((monthProfit[monthProfit.length - 1].profit - monthProfit[0].profit) / Math.abs(monthProfit[0].profit)) * 100 : 0;
+    return { ...totals, margin: calculateProfitMargin(totals.profit, totals.netRevenue), topPayer, bestMonth, lowestMonth, growth };
+  }, [byPayer, byPayerAndMonth, selectedMonthsSorted]);
+
+  const filename = `laba-rugi-by-payer-klinik-utama-prime-mata-${new Date().toISOString().slice(0, 10)}`;
+
+  const exportColumns: ExportColumn<PayerAggregate>[] = [
+    { key: 'payer', header: 'Payer' }, { key: 'revenue', header: 'Pendapatan', exportAccessor: (r) => r.revenue }, { key: 'discountMedis', header: 'Diskon Medis', exportAccessor: (r) => r.discountMedis },
+    { key: 'discountFarmasi', header: 'Diskon Farmasi', exportAccessor: (r) => r.discountFarmasi }, { key: 'discountOptik', header: 'Diskon Optik', exportAccessor: (r) => r.discountOptik },
+    { key: 'totalDiscount', header: 'Total Diskon', exportAccessor: (r) => r.totalDiscount }, { key: 'cogs', header: 'Beban Pokok', exportAccessor: (r) => r.cogs }, { key: 'profit', header: 'Laba', exportAccessor: (r) => r.profit }, { key: 'margin', header: 'Margin Laba (%)', exportAccessor: (r) => r.margin },
+  ];
+
+  const exportRows: Record<string, unknown>[] = filterMode === 'monthRange'
+    ? byPayerAndMonth.map((row) => ({ payer: row.payer, ...Object.fromEntries(selectedMonthsSorted.map((month) => [formatMonthLabel(month), row.months[month]?.[monthView] ?? 0])), total: row.total[monthView] }))
+    : byPayer.map((row) => ({ ...row }));
+  const monthRangeColumns = [{ key: 'payer', header: 'Payer' }, ...selectedMonthsSorted.map((m) => ({ key: m, header: formatMonthLabel(m), exportAccessor: (r: Record<string, unknown>) => Number(r[formatMonthLabel(m)] ?? 0) })), { key: 'total', header: 'Total' }];
+
+  const exportMeta = { appName: APP_NAME, module: MODULE_NAME, page: PAGE_NAME, filterMode, filters: { startDate, endDate, selectedMonths: selectedMonthsSorted }, summary: { totalRevenue: summary.revenue, totalDiscount: summary.discount, totalCogs: summary.cogs, totalProfit: summary.profit, profitMargin: summary.margin } };
+
+  const resetFilter = () => { setFilterMode('dateRange'); setStartDate(defaultStartDate); setEndDate(defaultEndDate); setSelectedMonths([defaultMonth]); setMonthInput(defaultMonth); setMonthView('profit'); };
+
+  return <div className="space-y-4"><PageHeader title={PAGE_NAME} description="Analisis pendapatan, diskon, beban pokok, dan laba berdasarkan payer." />
+    <Card><CardContent className="space-y-3 pt-5">
+      <div className="flex gap-2"><Button variant={filterMode === 'dateRange' ? 'default' : 'outline'} onClick={() => setFilterMode('dateRange')}>Filter Tanggal</Button><Button variant={filterMode === 'monthRange' ? 'default' : 'outline'} onClick={() => setFilterMode('monthRange')}>Range Month</Button></div>
+      {filterMode === 'dateRange' ? <div className="flex flex-wrap items-end gap-2"><label className="text-sm">Dari <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></label><label className="text-sm">Ke <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></label><Button variant="secondary" onClick={resetFilter}>Reset Filter</Button></div> : <div className="flex flex-wrap items-end gap-2"><label className="text-sm">Pilih Bulan <Input type="month" value={monthInput} onChange={(e) => setMonthInput(e.target.value)} /></label><Button onClick={() => !selectedMonths.includes(monthInput) && setSelectedMonths([...selectedMonths, monthInput].sort())}>+ Tambah Bulan</Button><Select value={monthView} onChange={(e) => setMonthView(e.target.value as MonthView)}><option value="profit">View: Laba</option><option value="revenue">View: Pendapatan</option><option value="margin">View: Margin</option></Select><Button variant="secondary" onClick={resetFilter}>Reset Filter</Button></div>}
+      {selectedMonthsSorted.length > 0 && filterMode === 'monthRange' && <div className="text-sm text-blue-700">Mode perbandingan bulan aktif. Menampilkan perbandingan: {selectedMonthsSorted.map(formatMonthLabel).join(', ')}</div>}
+      {dateError ? <Alert className="border-red-200 bg-red-50 text-red-700">{dateError}</Alert> : null}
+    </CardContent></Card>
+
+    <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4">{[
+      ['Total Pendapatan', formatCurrency(summary.revenue)], ['Total Diskon', formatCurrency(summary.discount)], ['Total Beban Pokok', formatCurrency(summary.cogs)], ['Total Laba', formatCurrency(summary.profit)], ['Margin Laba', formatPercent(summary.margin)], ['Payer Terbesar', summary.topPayer],
+      ...(filterMode === 'monthRange' ? [['Bulan terbaik', summary.bestMonth ? `${formatMonthLabel(summary.bestMonth.month)} (${formatCurrency(summary.bestMonth.profit)})` : '-'], ['Bulan terendah', summary.lowestMonth ? `${formatMonthLabel(summary.lowestMonth.month)} (${formatCurrency(summary.lowestMonth.profit)})` : '-'], ['Growth laba antar bulan', formatPercent(summary.growth)]] : []),
+    ].map(([label, value]) => <Card key={label}><CardContent className="pt-5"><div className="text-xs text-slate-500">{label}</div><div className="text-lg font-semibold">{value}</div></CardContent></Card>)}</div>
+
+    <Card><CardContent className="space-y-3 pt-5">
+      <div className="flex gap-2"><Button onClick={() => exportToCSV({ filename, rows: exportRows as any[], columns: (filterMode === 'monthRange' ? monthRangeColumns : exportColumns) as any[] })}><Download size={16}/>CSV</Button><Button onClick={() => exportToJson({ ...exportMeta, rows: exportRows }, `${filename}.json`)}><Download size={16}/>JSON</Button><Button onClick={() => exportToExcel({ filename, rows: exportRows as any[], columns: (filterMode === 'monthRange' ? monthRangeColumns : exportColumns) as any[], meta: { appName: APP_NAME, module: MODULE_NAME, page: PAGE_NAME, period: filterMode === 'monthRange' ? selectedMonthsSorted.map(formatMonthLabel).join(', ') : `${startDate} s/d ${endDate}`, exportedAt: new Date().toISOString(), totalRows: exportRows.length, totalAmount: formatCurrency(summary.profit) } })}><Download size={16}/>XLS</Button><Button onClick={() => printVoucherTable(exportRows as any[], (filterMode === 'monthRange' ? monthRangeColumns : exportColumns) as any[], { appName: APP_NAME, module: MODULE_NAME, title: PAGE_NAME, period: filterMode === 'monthRange' ? `Mode perbandingan bulan • ${selectedMonthsSorted.map(formatMonthLabel).join(', ')}` : `Mode filter tanggal • ${startDate} s/d ${endDate}`, totalAmount: formatCurrency(summary.profit), totalRows: exportRows.length })}><Printer size={16}/>Print</Button></div>
+
+      {!filteredRows.length ? <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center"><p className="font-medium">Tidak ada data Laba Rugi by Payer pada periode ini.</p><p className="text-sm text-slate-500">Coba ubah rentang tanggal atau pilih bulan lain.</p></div> : filterMode === 'dateRange' ? <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left"><th>Payer</th><th className="text-right">Pendapatan</th><th className="text-right">Diskon Medis</th><th className="text-right">Diskon Farmasi</th><th className="text-right">Diskon Optik</th><th className="text-right">Total Diskon</th><th className="text-right">Beban Pokok</th><th className="text-right">Laba</th><th className="text-right">Margin Laba</th></tr></thead><tbody>{byPayer.map((row) => <tr key={row.payer} className="border-b"><td>{row.payer}</td><td className="text-right">{formatCurrency(row.revenue)}</td><td className="text-right">{formatCurrency(row.discountMedis)}</td><td className="text-right">{formatCurrency(row.discountFarmasi)}</td><td className="text-right">{formatCurrency(row.discountOptik)}</td><td className="text-right">{formatCurrency(row.totalDiscount)}</td><td className="text-right">{formatCurrency(row.cogs)}</td><td className={`text-right font-semibold ${row.profit < 0 ? 'text-red-600' : 'text-slate-900'}`}>{formatCurrency(row.profit)}</td><td className="text-right">{formatPercent(row.margin)}</td></tr>)}</tbody></table></div> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left"><th>Payer</th>{selectedMonthsSorted.map((month) => <th key={month} className="text-right">{formatMonthLabel(month)}</th>)}<th className="text-right">Total</th></tr></thead><tbody>{byPayerAndMonth.map((row) => <tr key={row.payer} className="border-b"><td>{row.payer}</td>{selectedMonthsSorted.map((month) => <td key={month} className="text-right"><div className={`font-semibold ${(row.months[month]?.profit ?? 0) < 0 ? 'text-red-600' : ''}`}>{monthView === 'profit' ? formatCurrency(row.months[month]?.profit ?? 0) : monthView === 'revenue' ? formatCurrency(row.months[month]?.revenue ?? 0) : formatPercent(row.months[month]?.margin ?? 0)}</div><div className="text-xs text-slate-500">{formatCurrency(row.months[month]?.profit ?? 0)} • {formatPercent(row.months[month]?.margin ?? 0)}</div></td>)}<td className="text-right font-bold">{monthView === 'profit' ? formatCurrency(row.total.profit) : monthView === 'revenue' ? formatCurrency(row.total.revenue) : formatPercent(row.total.margin)}</td></tr>)}</tbody></table></div>}
+      {!revenue.length ? <Badge variant="amber">Belum ada data transaksi untuk menyusun Laba Rugi by Payer.</Badge> : null}
+    </CardContent></Card>
+  </div>;
+}
