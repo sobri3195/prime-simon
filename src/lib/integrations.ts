@@ -1,4 +1,5 @@
 import { differenceInCalendarDays, parseISO } from 'date-fns';
+import { calculatePphHonorDokter } from './taxCalculations';
 import type { APItem, ARItem, Doctor, DoctorFee, PaymentRequest, Payer, PayrollRecord, RevenueTransaction, TaxItem, Vendor } from './types';
 
 const receivableMethods = ['Piutang BPJS', 'Piutang Asuransi', 'Piutang Perusahaan'];
@@ -22,7 +23,24 @@ export function deriveAPFromPaymentRequests(requests: PaymentRequest[], vendors:
   return [...generated, ...existing.filter(i => !generatedIds.has(i.id))];
 }
 export function deriveTaxes(taxes: TaxItem[], doctorFees: DoctorFee[], doctors: Doctor[], payroll: PayrollRecord[]): TaxItem[] {
-  const doctorTax = doctorFees.filter(f => f.taxAmount > 0).map((f) => ({ id: `tax-fee-${f.id}`, date: f.paymentDate || f.billDate, taxType: 'PPhHonorDokter' as const, vendorOrPersonName: doctors.find(d => d.id === f.doctorId)?.name || f.doctorId, npwp: '', invoiceNo: f.paymentNo || f.billNo, period: (f.paymentDate || f.billDate).slice(0, 7), nominal: f.doctorFeeAmount + f.additionalAmount - f.deductionAmount, dpp: (f.doctorFeeAmount + f.additionalAmount - f.deductionAmount) * 0.5, ppn: 0, pph: f.taxAmount, takeHomePay: f.netAmount, paymentDate: f.paymentDate, notes: 'Auto dari pembayaran honor dokter' }));
+  const doctorTax = doctorFees.filter(f => f.taxAmount > 0).map((f) => {
+    const nominal = f.doctorFeeAmount + f.additionalAmount - f.deductionAmount;
+    const row = calculatePphHonorDokter({
+      id: `tax-fee-${f.id}`,
+      date: f.paymentDate || f.billDate,
+      taxType: 'PPhHonorDokter' as const,
+      vendorOrPersonName: doctors.find(d => d.id === f.doctorId)?.name || f.doctorId,
+      npwp: '',
+      invoiceNo: f.paymentNo || f.billNo,
+      period: (f.paymentDate || f.billDate).slice(0, 7),
+      nominal,
+      ppn: 0,
+      pph: f.taxAmount,
+      paymentDate: f.paymentDate,
+      notes: 'Auto dari pembayaran honor dokter',
+    });
+    return row;
+  });
   const payrollTax = payroll.filter(p => p.pph21 > 0).map((p) => ({ id: `tax-payroll-${p.id}`, date: `${p.period}-25`, taxType: 'PPh21' as const, vendorOrPersonName: p.employeeId, npwp: '', invoiceNo: p.id, period: p.period, nominal: p.grossSalary, dpp: p.grossSalary, ppn: 0, pph: p.pph21, takeHomePay: p.takeHomePay, paymentDate: `${p.period}-28`, notes: 'Auto dari payroll PPh21' }));
   const ids = new Set([...doctorTax, ...payrollTax].map(t => t.id));
   return [...doctorTax, ...payrollTax, ...taxes.filter(t => !ids.has(t.id))];
