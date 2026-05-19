@@ -1,23 +1,38 @@
-import * as React from 'react';
+import React from 'react';
 import { PageHeader } from '@/components/common/PageHeader';
-import { ExpandableFinancialRow } from '@/components/financialReports/ExpandableFinancialRow';
-import { getCashFlowDetails } from '@/utils/financialReportDetails';
-import type { RevenueTransaction, Voucher } from '@/lib/types';
+import { Button, Card, CardContent, Input, Select } from '@/components/ui/basic';
+import { exportToCSV, exportToExcel, exportToJson, printTable } from '@/lib/export';
+import { formatCurrency, formatDateID } from '@/lib/format';
+import type { FixedAsset, RevenueTransaction, Settings, Voucher } from '@/lib/types';
+import { calculateCashFlowStatement, getPeriodBuckets, type ReportMode } from '@/lib/cashFlowCalculations';
 
-export function CashFlowPage({ revenue, vouchers }: { revenue: RevenueTransaction[]; vouchers: Voucher[] }) {
-  const [expanded, setExpanded] = React.useState<string[]>([]);
-  const toggleExpanded = (id: string) => setExpanded((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+const today = new Date().toISOString().slice(0, 10);
 
-  const data = { revenue, vouchers };
-  const sections = [
-    { id: 'operating', label: 'Kas dari Operasi', amount: getCashFlowDetails('operating', data).details.slice(-1)[0]?.amount || 0 },
-    { id: 'investing', label: 'Kas dari Investasi', amount: getCashFlowDetails('investing', data).details.slice(-1)[0]?.amount || 0 },
-    { id: 'financing', label: 'Kas dari Pendanaan', amount: getCashFlowDetails('financing', data).details.slice(-1)[0]?.amount || 0 },
-    { id: 'net', label: 'Kenaikan / Penurunan Bersih Kas', amount: getCashFlowDetails('net', data).details.slice(-1)[0]?.amount || 0 },
-    { id: 'ending', label: 'Kas dan Bank Akhir Periode', amount: getCashFlowDetails('ending', data).details.slice(-1)[0]?.amount || 0 },
-  ];
+export function CashFlowPage({ revenue, vouchers, assets, settings }: { revenue: RevenueTransaction[]; vouchers: Voucher[]; assets: FixedAsset[]; settings: Settings }) {
+  const [startDate, setStartDate] = React.useState(settings.activeDateFrom);
+  const [endDate, setEndDate] = React.useState(settings.activeDateTo);
+  const [mode, setMode] = React.useState<ReportMode>('monthly');
+  const invalid = startDate > endDate;
+  const rows = React.useMemo(() => invalid ? [] : calculateCashFlowStatement({ revenue, vouchers, assets: assets as FixedAsset[], settings: settings as Settings }, { startDate, endDate, mode }), [revenue, vouchers, assets, settings, startDate, endDate, mode, invalid]);
+  const periods = getPeriodBuckets(startDate, endDate, mode);
+  const summary = rows.reduce((a, r) => ({ operating: a.operating + r.operating.totalOperatingCashFlow, investing: a.investing + r.investing.totalInvestingCashFlow, financing: a.financing + r.financing.totalFinancingCashFlow, net: a.net + r.netCashIncrease, beginning: a.beginning || r.beginningCash, ending: r.endingCash }), { operating: 0, investing: 0, financing: 0, net: 0, beginning: 0, ending: 0 });
 
-  return <div className="space-y-4" id="print-arus-kas"><PageHeader title="Arus Kas" description="Filter tanggal, bulanan/tahunan, operasi, investasi, pendanaan." />
-    <div className="overflow-x-auto rounded-xl border bg-white"><table className="w-full min-w-[760px] text-sm"><tbody>{sections.map((section) => { const detail = getCashFlowDetails(section.id, data); return <ExpandableFinancialRow key={section.id} id={section.id} label={section.label} amount={Number(section.amount || 0)} details={detail.details} formula={detail.formula} isExpanded={expanded.includes(section.id)} onToggle={toggleExpanded} type={section.id === 'net' || section.id === 'ending' ? 'total' : 'normal'}/>; })}</tbody></table></div>
+  const tableRows = [
+    ['ARUS KAS DARI AKTIVITAS OPERASI', 'group'], ['Laba (Rugi) tahun berjalan', 'operating.netIncome'], ['Penyusutan', 'operating.depreciation'], ['Amortisasi', 'operating.amortization'], ['Piutang Usaha', 'operating.receivablesChange'], ['Persediaan', 'operating.inventoryChange'], ['Beban Dibayar Dimuka', 'operating.prepaidExpenseChange'], ['Uang Muka Pembelian', 'operating.purchaseAdvanceChange'], ['Uang Muka Lain-lain', 'operating.otherAdvanceChange'], ['Investasi', 'operating.investmentChange'], ['Hutang Usaha', 'operating.accountsPayableChange'], ['Bag. Lancar Hutang Sewa Pembiayaan Jk Pjg', 'operating.leasePayableCurrentChange'], ['Hutang Pihak Berelasi', 'operating.relatedPartyPayableChange'], ['Kewajiban Imbalan Pasca Kerja', 'operating.employeeBenefitLiabilityChange'], ['Total Arus Kas dari Aktivitas Operasi', 'operating.totalOperatingCashFlow', 'total'],
+    ['ARUS KAS DARI AKTIVITAS INVESTASI', 'group'], ['Pembelian Aset Tetap', 'investing.fixedAssetPurchase'], ['Total Arus Kas dari Aktivitas Investasi', 'investing.totalInvestingCashFlow', 'total'],
+    ['ARUS KAS DARI AKTIVITAS PENDANAAN', 'group'], ['Penerimaan Pinjaman Bank', 'financing.bankLoanProceeds'], ['Pembayaran Dividen kepada Pemegang Saham', 'financing.dividendPayment'], ['Total Arus Kas dari Aktivitas Pendanaan', 'financing.totalFinancingCashFlow', 'total'],
+    ['Kenaikan / Penurunan Bersih Kas dan Bank', 'netCashIncrease', 'total'], ['Kas dan Bank Awal Periode', 'beginningCash'], ['Kas dan Bank Akhir Periode', 'endingCash', 'total'],
+  ] as const;
+
+  const exportRows = tableRows.filter((r) => r[1] !== 'group').map((r) => {
+    const values = Object.fromEntries(rows.map((p) => [p.periodLabel, String((r[1] as string).split('.').reduce<any>((obj, k) => obj?.[k], p) || 0)]));
+    return { Komponen: r[0], ...values, Total: String(Object.values(values).reduce((a, b) => a + Number(b), 0)) };
+  });
+
+  return <div className="space-y-4">
+    <PageHeader title="Arus Kas" description="Laporan arus kas berdasarkan aktivitas operasi, investasi, dan pendanaan." />
+    <Card><CardContent className="space-y-3"><div className="grid gap-3 md:grid-cols-4"><label>Dari<Input type='date' value={startDate} onChange={(e) => setStartDate(e.target.value)} /></label><label>Ke<Input type='date' value={endDate} onChange={(e) => setEndDate(e.target.value)} /></label><label>Mode<Select value={mode} onChange={(e) => setMode(e.target.value as ReportMode)}><option value='monthly'>Bulanan</option><option value='yearly'>Tahunan</option></Select></label><div className='flex items-end gap-2'><Button variant='outline' onClick={() => { setStartDate(settings.activeDateFrom); setEndDate(settings.activeDateTo); setMode('monthly'); }}>Reset Filter</Button><Button onClick={() => exportToCSV({ filename: `arus-kas-klinik-utama-prime-mata-${today}`, rows: exportRows, columns: Object.keys(exportRows[0] || { Komponen: '' }).map((k) => ({ key: k, header: k })) })}>Export CSV</Button><Button variant='outline' onClick={() => exportToJson({ appName: 'Klinik Utama Prime Mata', module: 'Finance Operations', page: 'Arus Kas', filterMode: mode, filters: { startDate, endDate }, summary, rows: exportRows }, `arus-kas-klinik-utama-prime-mata-${today}.json`)}>Export JSON</Button><Button variant='outline' onClick={() => exportToExcel({ filename: `arus-kas-klinik-utama-prime-mata-${today}`, rows: exportRows, columns: Object.keys(exportRows[0] || { Komponen: '' }).map((k) => ({ key: k, header: k })), sheetName: 'Arus Kas', meta: { appName: 'Klinik Utama Prime Mata', module: 'Finance Operations', page: 'Arus Kas', period: `${startDate} - ${endDate}` } })}>Export XLS</Button><Button variant='outline' onClick={() => printTable({ title: 'Arus Kas', subtitle: `Periode ${startDate} s.d. ${endDate} • Mode ${mode === 'monthly' ? 'Bulanan' : 'Tahunan'}`, rows: exportRows, columns: Object.keys(exportRows[0] || { Komponen: '' }).map((k) => ({ key: k, header: k })) })}>Print</Button></div></div>{invalid && <p className='text-sm text-red-600'>Tanggal awal tidak boleh lebih besar dari tanggal akhir.</p>}<p className='text-sm text-slate-500'>Menampilkan arus kas {formatDateID(startDate)} – {formatDateID(endDate)} dalam mode {mode === 'monthly' ? 'Bulanan' : 'Tahunan'}.</p></CardContent></Card>
+    <div className='grid gap-3 md:grid-cols-3'>{[['Kas dari Operasi', summary.operating], ['Kas dari Investasi', summary.investing], ['Kas dari Pendanaan', summary.financing], ['Kenaikan / Penurunan Bersih Kas', summary.net], ['Kas Awal', summary.beginning], ['Kas Akhir', summary.ending]].map(([t, v]) => <Card key={String(t)}><CardContent><p className='text-sm text-slate-500'>{t}</p><p className={`text-xl font-bold ${Number(v) < 0 ? 'text-red-600' : ''}`}>{formatCurrency(Number(v))}</p></CardContent></Card>)}</div>
+    {rows.length === 0 ? <Card><CardContent><p className='font-semibold'>Tidak ada data arus kas pada periode ini.</p><p className='text-sm text-slate-500'>Coba ubah rentang tanggal atau mode laporan.</p></CardContent></Card> : <Card><CardContent><div className='overflow-auto'><table className='w-full min-w-[1100px] text-sm'><thead><tr><th className='text-left'>Komponen</th>{periods.map((p) => <th key={p.key} className='text-right'>{p.label}</th>)}<th className='text-right'>Total</th></tr></thead><tbody>{tableRows.map((r) => r[1] === 'group' ? <tr key={r[0]} className='font-bold'><td colSpan={periods.length + 2} className='py-2'>{r[0]}</td></tr> : <tr key={r[0]} className={r[2] === 'total' ? 'bg-slate-50 font-semibold' : ''}><td>{r[0]}</td>{rows.map((p) => { const val = Number((r[1] as string).split('.').reduce<any>((obj, k) => obj?.[k], p) || 0); return <td key={p.periodKey} className={`text-right ${val < 0 ? 'text-red-600' : ''}`}>{formatCurrency(val)}</td>; })}<td className='text-right font-semibold'>{formatCurrency(rows.reduce((a, p) => a + Number((r[1] as string).split('.').reduce<any>((obj, k) => obj?.[k], p) || 0), 0))}</td></tr>)}</tbody></table></div></CardContent></Card>}
   </div>;
 }
