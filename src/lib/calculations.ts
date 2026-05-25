@@ -23,20 +23,28 @@ export function calculateAchievement({target,actual,type}:{target:number;actual:
   return {achievementPercent,gap,status,statusColor,insight};
 }
 export function generateReportHighlightAnalysis(summary:{target:number;realization:number;achievementPercentage:number},breakdowns:any[]){
-  const revenue=breakdowns.filter(b=>b.type==='revenue');
-  const top=[...revenue].sort((a,b)=>b.actual-a.actual)[0];
-  const lowest=[...revenue].sort((a,b)=>a.achievementPercent-b.achievementPercent)[0];
+  const revenue=breakdowns.filter((b)=>b.type==='revenue');
+  const topContribution=[...revenue].sort((a,b)=>b.actual-a.actual)[0];
+  const highestAchievement=[...revenue].sort((a,b)=>b.achievementPercent-a.achievementPercent)[0];
+  const lowestAchievement=[...revenue].sort((a,b)=>a.achievementPercent-b.achievementPercent)[0];
   const largestGap=[...revenue].sort((a,b)=>a.gap-b.gap)[0];
-  const risks=breakdowns.filter(b=>['receivable','payable'].includes(b.type) && b.achievementPercent>100);
+  const umum=revenue.find((r)=>r.key==='umum');
+  const bpjs=revenue.find((r)=>r.key==='bpjs');
+  const asuransi=revenue.find((r)=>r.key==='asuransi');
+  const toPercent=(value:number, digits=2)=>`${value.toFixed(digits).replace('.',',')}%`;
+  const toRupiah=(value:number)=>`Rp ${new Intl.NumberFormat('id-ID').format(value)}`;
+  const toGap=(value:number)=>`${value<0?'-':''}Rp ${new Intl.NumberFormat('id-ID').format(Math.abs(value))}`;
+
   return [
-    `Total realisasi baru mencapai ${summary.achievementPercentage.toFixed(2).replace('.',',')}% dari target bulan ini.`,
-    top?`Capaian tertinggi berasal dari ${top.label} dengan kontribusi Rp ${new Intl.NumberFormat('id-ID').format(top.actual)}.`:'Belum ada komponen pendapatan yang dapat dibandingkan.',
-    lowest?`Capaian terendah saat ini terdapat pada ${lowest.label} di level ${lowest.achievementPercent.toFixed(2).replace('.',',')}%.`:'',
-    largestGap?`Gap terbesar terdapat pada ${largestGap.label} sebesar ${largestGap.gap<0?'-':'+'}Rp ${new Intl.NumberFormat('id-ID').format(Math.abs(largestGap.gap))}.`:'',
-    risks.length?`${risks.map(r=>r.label).join(' dan ')} melebihi batas target, perlu follow-up intensif.`:'Piutang/hutang masih dalam batas yang dapat dipantau.',
-    'Disarankan evaluasi payer terbesar, produktivitas dokter, dan percepatan follow-up piutang.',
+    `Total realisasi baru mencapai ${toPercent(summary.achievementPercentage)} dari target bulan ini.`,
+    topContribution?`Kontribusi terbesar bulan berjalan berasal dari ${topContribution.label} sebesar ${toRupiah(topContribution.actual)} atau ${toPercent(topContribution.contributionPercent)} dari total realisasi.`:'',
+    highestAchievement?`Capaian target tertinggi berasal dari ${highestAchievement.label} sebesar ${toPercent(highestAchievement.achievementPercent)}.`:'',
+    lowestAchievement?`Capaian target terendah berasal dari ${lowestAchievement.label} sebesar ${toPercent(lowestAchievement.achievementPercent, lowestAchievement.key==='umum'?1:2)}.`:'',
+    largestGap?`Gap terbesar terhadap target terdapat pada ${largestGap.label} sebesar ${toGap(largestGap.gap)}.`:'',
+    umum&&bpjs&&asuransi?`${umum.label} dan ${bpjs.label} masih perlu ditingkatkan karena kontribusinya terhadap total realisasi bulan berjalan masih lebih kecil dibanding ${asuransi.label}.`:'',
   ].filter(Boolean);
 }
+
 
 export function profitLoss(transactions:RevenueTransaction[],fees:DoctorFee[]=[],payroll:PayrollRecord[]=[]){const totalPendapatan=sum(transactions.map(t=>t.grossAmount));const totalDiskon=sum(transactions.map(t=>t.discount));const pendapatanBersih=sum(transactions.map(t=>t.netAmount));const bebanPokok=sum(fees.map(f=>f.netAmount))+pendapatanBersih*.18;const labaBruto=pendapatanBersih-bebanPokok;const bebanOperasional=sum(payroll.map(p=>p.grossSalary))+pendapatanBersih*.12;const ebitda=labaBruto-bebanOperasional;const labaRugiBersih=ebitda-pendapatanBersih*.025;return{groups:{'Pendapatan Usaha':totalPendapatan,'Pendapatan Pelayanan Medis':sum(transactions.filter(t=>['Konsultasi','Tindakan Medis','Operasi','Laboratorium'].includes(t.serviceCategory)).map(t=>t.netAmount)),'Pendapatan Farmasi':sum(transactions.filter(t=>t.serviceCategory==='Farmasi').map(t=>t.netAmount)),'Pendapatan Optik':sum(transactions.filter(t=>t.serviceCategory==='Optik').map(t=>t.netAmount)),Diskon:totalDiskon,'Beban Pokok Pendapatan':bebanPokok,'Beban Operasional':bebanOperasional,'Beban Administrasi':bebanOperasional*.3,'Pendapatan/Beban Lainnya':-pendapatanBersih*.025},totalPendapatan,totalDiskon,pendapatanBersih,bebanPokok,labaBruto,bebanOperasional,ebitda,labaRugiBersih,marginLabaBruto:pendapatanBersih?labaBruto/pendapatanBersih*100:0,marginLabaBersih:pendapatanBersih?labaRugiBersih/pendapatanBersih*100:0}}
 export const budgetRealization=(budgetAmount:number,realizationAmount:number)=>({budgetAmount,realizationAmount,percentage:budgetAmount?realizationAmount/budgetAmount*100:0,variance:realizationAmount-budgetAmount,status:realizationAmount>budgetAmount?'Over Budget':'Under Budget'});
