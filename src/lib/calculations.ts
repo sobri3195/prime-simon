@@ -22,7 +22,11 @@ export function calculateAchievement({target,actual,type}:{target:number;actual:
   const insight=gap<0?`Masih terdapat gap Rp ${new Intl.NumberFormat('id-ID').format(Math.abs(gap))} dari target.`:gap>0?`Melebihi target sebesar Rp ${new Intl.NumberFormat('id-ID').format(gap)}.`:'Sesuai dengan target.';
   return {achievementPercent,gap,status,statusColor,insight};
 }
-export function generateReportHighlightAnalysis(summary:{target:number;realization:number;achievementPercentage:number},breakdowns:any[]){
+export function generateReportHighlightAnalysis(
+  summary:{target:number;realization:number;achievementPercentage:number},
+  breakdowns:any[],
+  period?:{monthName:string;year:number},
+){
   const revenue=breakdowns.filter((b)=>b.type==='revenue');
   const topContribution=[...revenue].sort((a,b)=>b.actual-a.actual)[0];
   const highestAchievement=[...revenue].sort((a,b)=>b.achievementPercent-a.achievementPercent)[0];
@@ -34,14 +38,17 @@ export function generateReportHighlightAnalysis(summary:{target:number;realizati
   const toPercent=(value:number, digits=2)=>`${value.toFixed(digits).replace('.',',')}%`;
   const toRupiah=(value:number)=>`Rp ${new Intl.NumberFormat('id-ID').format(value)}`;
   const toGap=(value:number)=>`${value<0?'-':''}Rp ${new Intl.NumberFormat('id-ID').format(Math.abs(value))}`;
+  const periodLabel=period?`${period.monthName} ${period.year}`:'bulan ini';
 
   return [
-    `Total realisasi baru mencapai ${toPercent(summary.achievementPercentage)} dari target bulan ini.`,
+    `Total realisasi bulan ${periodLabel} baru mencapai ${toRupiah(summary.realization)} atau ${toPercent(summary.achievementPercentage)} dari total target ${toRupiah(summary.target)}.`,
     topContribution?`Kontribusi terbesar bulan berjalan berasal dari ${topContribution.label} sebesar ${toRupiah(topContribution.actual)} atau ${toPercent(topContribution.contributionPercent)} dari total realisasi.`:'',
+    bpjs?`Kontribusi BPJS terhadap realisasi bulan berjalan sebesar ${toRupiah(bpjs.actual)} atau ${toPercent(bpjs.contributionPercent)}.`:'',
+    umum?`Kontribusi Umum terhadap realisasi bulan berjalan sebesar ${toRupiah(umum.actual)} atau ${toPercent(umum.contributionPercent)}.`:'',
     highestAchievement?`Capaian target tertinggi berasal dari ${highestAchievement.label} sebesar ${toPercent(highestAchievement.achievementPercent)}.`:'',
-    lowestAchievement?`Capaian target terendah berasal dari ${lowestAchievement.label} sebesar ${toPercent(lowestAchievement.achievementPercent, lowestAchievement.key==='umum'?1:2)}.`:'',
+    lowestAchievement?`Capaian target terendah berasal dari ${lowestAchievement.label} dengan capaian ${toPercent(lowestAchievement.achievementPercent, lowestAchievement.key==='umum'?1:2)} dari target.`:'',
     largestGap?`Gap terbesar terhadap target terdapat pada ${largestGap.label} sebesar ${toGap(largestGap.gap)}.`:'',
-    umum&&bpjs&&asuransi?`${umum.label} dan ${bpjs.label} masih perlu ditingkatkan karena kontribusinya terhadap total realisasi bulan berjalan masih lebih kecil dibanding ${asuransi.label}.`:'',
+    umum&&bpjs&&asuransi?`Prioritas perbaikan bulan berjalan adalah meningkatkan ${umum.label} dan ${bpjs.label}, karena kontribusi keduanya masih lebih rendah dibanding ${asuransi.label}.`:'',
   ].filter(Boolean);
 }
 
