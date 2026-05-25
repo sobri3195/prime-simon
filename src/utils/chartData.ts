@@ -139,7 +139,26 @@ export type GroupedDoctorRevenue = {
 
 export function filterRevenueByPayer(rows: RevenueTransaction[], payer: string) {
   if (!payer || payer === 'All') return rows;
-  return rows.filter((row) => (row.payerName || row.payerType) === payer || row.payerType === payer);
+
+  const normalized = payer.trim().toLowerCase();
+  return rows.filter((row) => {
+    const payerType = (row.payerType || '').trim().toLowerCase();
+    const payerName = (row.payerName || '').trim().toLowerCase();
+
+    if (normalized === 'umum') {
+      return payerType === 'umum' || payerName.includes('umum');
+    }
+
+    if (normalized === 'bpjs') {
+      return payerType === 'bpjs' || payerName.includes('bpjs');
+    }
+
+    if (normalized === 'asuransi') {
+      return payerType === 'asuransi' || payerName.includes('asuransi');
+    }
+
+    return (row.payerName || row.payerType) === payer || row.payerType === payer;
+  });
 }
 
 export function groupRevenueByDoctor(rows: RevenueTransaction[]): GroupedDoctorRevenue[] {
