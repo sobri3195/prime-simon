@@ -87,7 +87,7 @@ export function InventoryPage({ items, movements }: { items: InventoryItem[]; mo
     return { totalItems: rows.length, totalEndingQty, totalEndingAmount, topItem: highest?.itemName || '-' };
   }, [rows]);
 
-  const filename = `laporan-persediaan-average-klinik-utama-prime-mata-${new Date().toISOString().slice(0, 10)}`;
+  const filename = `laporan-persediaan-klinik-utama-prime-mata-${new Date().toISOString().slice(0, 10)}`;
 
   const columns = React.useMemo<DataTableColumn<InventoryAverageRow>[]>(() => {
     const base: DataTableColumn<InventoryAverageRow>[] = [
@@ -111,18 +111,18 @@ export function InventoryPage({ items, movements }: { items: InventoryItem[]; mo
   const exportColumns: ExportColumn<InventoryAverageRow>[] = columns.map((column) => ({ key: String(column.key), header: column.header, exportAccessor: (r) => { const value = column.sortValue?.(r) ?? (r as unknown as Record<string, unknown>)[String(column.key)] ?? ''; return typeof value === 'number' ? value : String(value); }, isCurrency: column.isCurrency, isNumber: column.isNumber }));
 
   const exportMeta = {
-    appName: 'Klinik Utama Prime Mata', module: 'Finance Operations', page: 'Laporan Persediaan Average',
+    appName: 'Klinik Utama Prime Mata', module: 'Finance Operations', page: 'Laporan Persediaan',
     filters: { startDate, endDate, category },
     summary: { totalItems: summary.totalItems, totalEndingQty: summary.totalEndingQty, totalEndingAmount: summary.totalEndingAmount },
     formula: { endingQty: 'Awal + Masuk - Keluar + Adjustment - Expired', endingAmount: 'Akhir x WACC' },
   };
 
-  return <div className="space-y-4"><PageHeader title="Laporan Persediaan Average" description="Metode average/WACC, awal, masuk, keluar, adjustment, expired, akhir, dan summary value." actions={<div className="flex gap-2"><Button variant="outline" onClick={() => exportToCSV({ filename, rows, columns: exportColumns, includeFooter: true })}>Export CSV</Button><Button variant="outline" onClick={() => exportToJSON({ filename, rows, columns: exportColumns, includeFooter: true, meta: exportMeta })}>Export JSON</Button><Button variant="outline" onClick={() => exportToExcel({ filename, rows, columns: exportColumns, includeFooter: true, meta: { appName: exportMeta.appName, module: exportMeta.module, page: exportMeta.page, period: `${startDate} s/d ${endDate}`, exportedAt: new Date().toLocaleString('id-ID'), totalRows: rows.length, totalAmount: formatCurrency(summary.totalEndingAmount) } })}>Export XLS</Button><Button variant="outline" onClick={() => printVoucherTable(rows, exportColumns, { appName: 'Klinik Utama Prime Mata', module: 'Finance Operations', title: 'Laporan Persediaan Average', period: `${startDate} s/d ${endDate} | Kategori: ${category}`, totalAmount: formatCurrency(summary.totalEndingAmount), totalRows: rows.length })}>Print</Button></div>} />
+  return <div className="space-y-4"><PageHeader title="Laporan Persediaan" description="Metode average/WACC, awal, masuk, keluar, adjustment, expired, akhir, dan summary value." actions={<div className="flex gap-2"><Button variant="outline" onClick={() => exportToCSV({ filename, rows, columns: exportColumns, includeFooter: true })}>Export CSV</Button><Button variant="outline" onClick={() => exportToJSON({ filename, rows, columns: exportColumns, includeFooter: true, meta: exportMeta })}>Export JSON</Button><Button variant="outline" onClick={() => exportToExcel({ filename, rows, columns: exportColumns, includeFooter: true, meta: { appName: exportMeta.appName, module: exportMeta.module, page: exportMeta.page, period: `${startDate} s/d ${endDate}`, exportedAt: new Date().toLocaleString('id-ID'), totalRows: rows.length, totalAmount: formatCurrency(summary.totalEndingAmount) } })}>Export XLS</Button><Button variant="outline" onClick={() => printVoucherTable(rows, exportColumns, { appName: 'Klinik Utama Prime Mata', module: 'Finance Operations', title: 'Laporan Persediaan', period: `${startDate} s/d ${endDate} | Kategori: ${category}`, totalAmount: formatCurrency(summary.totalEndingAmount), totalRows: rows.length })}>Print</Button></div>} />
 
     <Card><CardContent className="grid gap-3 pt-6 md:grid-cols-5"><div><p className="text-xs text-slate-500">Total Item</p><p className="text-xl font-bold">{summary.totalItems}</p></div><div><p className="text-xs text-slate-500">Total Qty Akhir</p><p className="text-xl font-bold">{summary.totalEndingQty} unit</p></div><div><p className="text-xs text-slate-500">Total Nilai Persediaan</p><p className="text-xl font-bold">{formatCurrency(summary.totalEndingAmount)}</p></div><div><p className="text-xs text-slate-500">Kategori Aktif</p><Badge>{category}</Badge></div><div><p className="text-xs text-slate-500">Item Nilai Tertinggi</p><p className="text-xl font-bold">{summary.topItem}</p></div></CardContent></Card>
 
     <DataTable
-      title="Laporan Persediaan Average"
+      title="Laporan Persediaan"
       description={`Periode ${formatDate(startDate)} - ${formatDate(endDate)} • Kategori: ${category}`}
       rows={rows}
       columns={columns}
