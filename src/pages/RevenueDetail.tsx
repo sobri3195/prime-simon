@@ -22,6 +22,8 @@ export function RevenueDetail({ rows, mode = 'revenue' }: Props) {
   const [payer, setPayer] = React.useState(ALL_PAYER);
   const [category, setCategory] = React.useState(ALL_CATEGORY);
   const [bank, setBank] = React.useState(ALL_BANK);
+  const [fromDate, setFromDate] = React.useState('2026-05-01');
+  const [toDate, setToDate] = React.useState('2026-05-31');
   const [tableKey, setTableKey] = React.useState(0);
 
   const sourceRows = React.useMemo(
@@ -33,7 +35,18 @@ export function RevenueDetail({ rows, mode = 'revenue' }: Props) {
   const categoryOptions = React.useMemo(() => [ALL_CATEGORY, ...Array.from(new Set(sourceRows.map((r) => r.serviceCategory))).sort()], [sourceRows]);
   const bankOptions = React.useMemo(() => [ALL_BANK, ...Array.from(new Set(sourceRows.map((r) => r.bankName).filter(Boolean))).sort()], [sourceRows]);
 
-  const filteredRows = React.useMemo(() => sourceRows.filter((r) => (payer === ALL_PAYER || r.payerName === payer) && (category === ALL_CATEGORY || r.serviceCategory === category) && (bank === ALL_BANK || r.bankName === bank)), [sourceRows, payer, category, bank]);
+  const filteredRows = React.useMemo(
+    () =>
+      sourceRows.filter(
+        (r) =>
+          r.date >= fromDate &&
+          r.date <= toDate &&
+          (payer === ALL_PAYER || r.payerName === payer) &&
+          (category === ALL_CATEGORY || r.serviceCategory === category) &&
+          (bank === ALL_BANK || r.bankName === bank),
+      ),
+    [sourceRows, fromDate, toDate, payer, category, bank],
+  );
 
   const title = isCardPage ? 'Kartu Debit / Kredit' : 'Laporan Pendapatan Detail';
   const description = isCardPage
@@ -47,20 +60,27 @@ export function RevenueDetail({ rows, mode = 'revenue' }: Props) {
   const byPayer = groupSum(filteredRows, (r) => r.payerName, (r) => r.netAmount);
   const byCat = groupSum(filteredRows, (r) => r.serviceCategory, (r) => r.netAmount);
   const totalAmount = filteredRows.reduce((sum, r) => sum + r.netAmount, 0);
-  const totalMdr = filteredRows.reduce((sum, r) => sum + r.netAmount * 0.015, 0);
+  const getMdrRate = (row: RevenueTransaction) => {
+    if (row.paymentMethod === 'Debit Card') return 0.01;
+    if (row.bankName === 'CIMB Niaga') return 0.024;
+    return 0.022;
+  };
+  const totalMdr = filteredRows.reduce((sum, r) => sum + r.netAmount * getMdrRate(r), 0);
   const pendingCount = filteredRows.filter((r) => !r.notes?.toLowerCase().includes('settled')).length;
   const bankSummary = Object.entries(filteredRows.reduce<Record<string, number>>((acc, row) => ({ ...acc, [row.bankName || '-']: (acc[row.bankName || '-'] || 0) + row.netAmount }), {})).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
 
   const columns: DataTableColumn<RevenueTransaction>[] = isCardPage
     ? [
         { key: 'date', header: 'Tanggal', cell: (r) => r.date },
-        { key: 'invoice', header: 'Invoice / Referensi', cell: (r) => r.invoiceNo || r.receiptNo },
+        { key: 'invoice', header: 'Invoice', cell: (r) => r.invoiceNo || r.receiptNo },
         { key: 'payer', header: 'Payer', cell: (r) => r.payerName },
+        { key: 'patient', header: 'Pasien', cell: (r) => r.patientName },
         { key: 'category', header: 'Kategori Layanan', cell: (r) => r.serviceCategory },
         { key: 'bank', header: 'Nama Bank', cell: (r) => r.bankName || '-' },
         { key: 'cardType', header: 'Jenis Kartu', cell: (r) => (r.paymentMethod === 'Debit Card' ? 'Debit' : 'Kredit') },
-        { key: 'amount', header: 'Amount', cell: (r) => formatRupiah(r.netAmount), total: (rs) => formatRupiah(rs.reduce((a, b) => a + b.netAmount, 0)) },
-        { key: 'mdr', header: 'MDR', cell: (r) => formatRupiah(r.netAmount * 0.015), total: (rs) => formatRupiah(rs.reduce((a, b) => a + b.netAmount * 0.015, 0)) },
+        { key: 'amount', header: 'Nominal', cell: (r) => formatRupiah(r.netAmount), total: (rs) => formatRupiah(rs.reduce((a, b) => a + b.netAmount, 0)) },
+        { key: 'mdr', header: 'MDR', cell: (r) => formatRupiah(r.netAmount * getMdrRate(r)), total: (rs) => formatRupiah(rs.reduce((a, b) => a + b.netAmount * getMdrRate(b), 0)) },
+        { key: 'netto', header: 'Netto', cell: (r) => formatRupiah(r.netAmount - r.netAmount * getMdrRate(r)), total: (rs) => formatRupiah(rs.reduce((a, b) => a + (b.netAmount - b.netAmount * getMdrRate(b)), 0)) },
         { key: 'settlement', header: 'Settlement Status', cell: (r) => (r.notes?.toLowerCase().includes('settled') ? 'Settled' : 'Pending') },
       ]
     : [
@@ -75,24 +95,32 @@ export function RevenueDetail({ rows, mode = 'revenue' }: Props) {
       ];
 
   const resetFilter = () => {
-    setPayer(ALL_PAYER); setCategory(ALL_CATEGORY); setBank(ALL_BANK); setTableKey((k) => k + 1);
+    setFromDate('2026-05-01');
+    setToDate('2026-05-31');
+    setPayer(ALL_PAYER);
+    setCategory(ALL_CATEGORY);
+    setBank(ALL_BANK);
+    setTableKey((k) => k + 1);
   };
 
   const baseFilename = `kartu-debit-kredit-klinik-utama-prime-mata-${new Date().toISOString().slice(0, 10)}`;
   const exportColumns: ExportColumn<RevenueTransaction>[] = columns.map((c) => ({ key: c.key, header: c.header, exportAccessor: (r) => String(c.cell ? c.cell(r) : '') }));
-  const meta = { appName: 'Klinik Utama Prime Mata', module: 'Finance Operations', page: 'Kartu Debit / Kredit', filters: { payer, kategori: category, bank }, totalRows: filteredRows.length, totalAmount, rows: filteredRows };
+  const activePeriod = `${fromDate} s.d ${toDate}`;
+  const meta = { appName: 'Klinik Utama Prime Mata', module: 'Finance Operations', page: 'Kartu Debit / Kredit', filters: { fromDate, toDate, payer, kategori: category, bank }, totalRows: filteredRows.length, totalAmount, rows: filteredRows };
 
   return <div className="space-y-4">
-    <PageHeader title={title} description={description} actions={isCardPage ? <><Button variant="outline" onClick={() => exportToCSV({ filename: baseFilename, rows: filteredRows, columns: exportColumns })}><Download size={16} />CSV</Button><Button variant="outline" onClick={() => exportToJson(meta, `${baseFilename}.json`)}><Download size={16} />JSON</Button><Button variant="outline" onClick={() => exportToExcel({ filename: baseFilename, rows: filteredRows, columns: exportColumns, meta })}><Download size={16} />XLS</Button><Button variant="outline" onClick={() => printVoucherTable(filteredRows, exportColumns, { appName: 'Klinik Utama Prime Mata', module: 'Finance Operations', title: 'Kartu Debit / Kredit', period: 'Filter Aktif', totalAmount: formatRupiah(totalAmount), totalRows: filteredRows.length, filters: { bank, payer, category } })}>Print Laporan</Button></> : undefined} />
+    <PageHeader title={title} description={description} actions={isCardPage ? <><Button variant="outline" onClick={() => exportToCSV({ filename: baseFilename, rows: filteredRows, columns: exportColumns })}><Download size={16} />CSV</Button><Button variant="outline" onClick={() => exportToJson(meta, `${baseFilename}.json`)}><Download size={16} />JSON</Button><Button variant="outline" onClick={() => exportToExcel({ filename: baseFilename, rows: filteredRows, columns: exportColumns, meta })}><Download size={16} />XLS</Button><Button variant="outline" onClick={() => printVoucherTable(filteredRows, exportColumns, { appName: 'Klinik Utama Prime Mata', module: 'Finance Operations', title: 'Kartu Debit / Kredit', period: activePeriod, totalAmount: formatRupiah(totalAmount), totalRows: filteredRows.length, filters: { fromDate, toDate, bank, payer, category } })}>Print Laporan</Button></> : undefined} />
     <FilterBar>
-      <Select value={payer} onChange={(e) => setPayer(e.target.value)}>{payerOptions.map((opt) => <option key={opt}>{opt}</option>)}</Select>
-      <Select value={category} onChange={(e) => setCategory(e.target.value)}>{categoryOptions.map((opt) => <option key={opt}>{opt}</option>)}</Select>
-      {isCardPage && <Select value={bank} onChange={(e) => { setBank(e.target.value); setTableKey((k) => k + 1); }}>{bankOptions.map((opt) => <option key={opt}>{opt}</option>)}</Select>}
+      {isCardPage && <label className="text-sm">Dari Tanggal <input className="ml-2 rounded-md border border-slate-300 px-3 py-2" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></label>}
+      {isCardPage && <label className="text-sm">Sampai Tanggal <input className="ml-2 rounded-md border border-slate-300 px-3 py-2" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} /></label>}
+      <Select value={payer} onChange={(e) => setPayer(e.target.value)} aria-label="Semua Payer">{payerOptions.map((opt) => <option key={opt}>{opt}</option>)}</Select>
+      <Select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Semua Kategori">{categoryOptions.map((opt) => <option key={opt}>{opt}</option>)}</Select>
+      {isCardPage && <Select value={bank} onChange={(e) => { setBank(e.target.value); setTableKey((k) => k + 1); }} aria-label="Semua Bank">{bankOptions.map((opt) => <option key={opt}>{opt}</option>)}</Select>}
       {isCardPage && <Button variant="outline" onClick={resetFilter}><RotateCcw size={16} />Reset Filter</Button>}
     </FilterBar>
     {isCardPage && <div className="grid gap-3 md:grid-cols-5"><Badge>Total Transaksi: {filteredRows.length}</Badge><Badge>Total Nominal: {formatRupiah(totalAmount)}</Badge><Badge>Bank Terbesar: {bankSummary}</Badge><Badge>Settlement Pending: {pendingCount}</Badge><Badge>MDR Estimasi: {formatRupiah(totalMdr)}</Badge></div>}
     {isCardPage && bank !== ALL_BANK && <p className="text-sm text-blue-700">Menampilkan transaksi Bank {bank}</p>}
     <div className="grid gap-4 lg:grid-cols-2"><ChartCard title="By Payer"><ResponsiveContainer height={220}><BarChart data={byPayer}><XAxis dataKey="name"/><YAxis/><Tooltip formatter={(v: number) => formatRupiah(Number(v))} labelFormatter={(label) => `${label} • Bank: ${bank}`} /><Bar dataKey="value" fill="#2563eb"/></BarChart></ResponsiveContainer></ChartCard><ChartCard title="By Kategori Layanan"><ResponsiveContainer height={220}><BarChart data={byCat}><XAxis dataKey="name" hide/><YAxis/><Tooltip formatter={(v: number) => formatRupiah(Number(v))} labelFormatter={(label) => `${label} • Bank: ${bank}`} /><Bar dataKey="value" fill="#06b6d4"/></BarChart></ResponsiveContainer></ChartCard></div>
-    <DataTable key={tableKey} title={isCardPage ? 'Transaksi Kartu Debit / Kredit' : undefined} rows={filteredRows} columns={columns} emptyMessage={isCardPage && bank !== ALL_BANK ? 'Tidak ada transaksi untuk bank ini.' : 'Belum ada transaksi kartu debit/kredit.'} emptyDescription={isCardPage && bank !== ALL_BANK ? 'Coba pilih bank lain atau reset filter.' : 'Data akan tampil setelah transaksi pembayaran non-tunai dicatat.'} enableExport={!isCardPage} enablePrint={!isCardPage} />
+    <DataTable key={tableKey} title={isCardPage ? 'Transaksi Kartu Debit / Kredit' : undefined} rows={filteredRows} columns={columns} emptyMessage={isCardPage ? 'Tidak ada transaksi kartu debit/kredit untuk periode dan filter yang dipilih.' : 'Belum ada transaksi kartu debit/kredit.'} emptyDescription={isCardPage ? 'Silakan ubah filter tanggal, payer, kategori, atau bank.' : 'Data akan tampil setelah transaksi pembayaran non-tunai dicatat.'} enableExport={!isCardPage} enablePrint={!isCardPage} />
   </div>;
 }
