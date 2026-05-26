@@ -36,7 +36,7 @@ export const navItems = [
   { id: 'collection-letter', label: 'Surat Penagihan Asuransi', icon: FileText, group: 'Piutang & Hutang' },
   { id: 'inventory-master', label: 'Master Persediaan', icon: Package, group: 'Persediaan' },
   { id: 'inventory-mutation', label: 'Mutasi Persediaan', icon: Package, group: 'Persediaan' },
-  { id: 'inventory', label: 'Laporan Persediaan Average', icon: Package, group: 'Persediaan' },
+  { id: 'inventory', label: 'Laporan Persediaan', icon: Package, group: 'Persediaan' },
   { id: 'asset-master', label: 'Master Aset', icon: Building2, group: 'Aset Tetap' },
   { id: 'asset-depreciation', label: 'Penyusutan Aset', icon: Building2, group: 'Aset Tetap' },
   { id: 'assets', label: 'Laporan Aset by Cost Center', icon: Building2, group: 'Aset Tetap' },
