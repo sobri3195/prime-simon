@@ -5,7 +5,7 @@ import { ChartCard } from '@/components/common/ChartCard';
 import { PageHeader } from '@/components/common/PageHeader';
 import { formatRupiah } from '@/lib/format';
 import { toast } from '@/lib/toast';
-import type { DoctorFee, PayrollRecord, RevenueTransaction } from '@/lib/types';
+import type { DoctorFee, PayrollRecord, RevenueTransaction, TaxItem } from '@/lib/types';
 import {
   calculateMargin,
   calculateProfitLoss,
@@ -24,7 +24,7 @@ type MonthMetrics = { revenue: number; expenses: number; grossProfit: number; eb
 const ACTIVE_MONTH = '2026-05';
 const DUMMY_MONTHS: Record<string, Partial<MonthMetrics>> = {
   '2026-04': { revenue: 9500000, expenses: 65250000, grossProfit: 7800000, ebitda: -55750000, netProfit: -56100000, netMargin: -590.5 },
-  '2026-05': { revenue: 10700000, expenses: 79610375, grossProfit: 8663125, ebitda: -68749875, netProfit: -68910375, netMargin: -644.0 },
+  '2026-05': { revenue: 10700000, expenses: 79610375, grossProfit: 8663125, ebitda: -68642875, netProfit: -68910375, netMargin: -644.0, tax: 107000 },
   '2026-06': { revenue: 12300000, expenses: 72400000, grossProfit: 9900000, ebitda: -59850000, netProfit: -60100000, netMargin: -488.6 },
 };
 
@@ -40,7 +40,7 @@ const monthComparisonRows = [
   { key: 'netMargin', label: 'Margin Bersih', field: 'netMargin' as const, isPercent: true },
 ];
 
-export function ProfitLossPage({ revenue, fees, payroll }: { revenue: RevenueTransaction[]; fees: DoctorFee[]; payroll: PayrollRecord[] }) {
+export function ProfitLossPage({ revenue, fees, payroll, taxes }: { revenue: RevenueTransaction[]; fees: DoctorFee[]; payroll: PayrollRecord[]; taxes: TaxItem[] }) {
   const [filterMode, setFilterMode] = React.useState<ProfitLossFilterMode>('monthRange');
   const [startDate, setStartDate] = React.useState('2026-05-01');
   const [endDate, setEndDate] = React.useState('2026-05-31');
@@ -66,7 +66,7 @@ export function ProfitLossPage({ revenue, fees, payroll }: { revenue: RevenueTra
   }, [filterMode]);
 
   const monthlyData = React.useMemo(() => {
-    const base = groupProfitLossByMonth(rows, selectedMonths, fees, payroll);
+    const base = groupProfitLossByMonth(rows, selectedMonths, fees, payroll, taxes);
     return selectedMonths.slice().sort().map((m) => {
       const found = base.find((b) => b.periodKey === m);
       const fallback = DUMMY_MONTHS[m] || {};
@@ -79,16 +79,17 @@ export function ProfitLossPage({ revenue, fees, payroll }: { revenue: RevenueTra
       const directExpense = fallback.directExpense ?? Math.max(revenueValue - grossProfit, 0);
       const operationalExpense = fallback.operationalExpense ?? Math.max(expenses - directExpense, 0);
       const nonOperationalExpense = fallback.nonOperationalExpense ?? Math.max((ebitda - netProfit) * 0.6, 0);
-      const tax = fallback.tax ?? Math.max((ebitda - netProfit) * 0.4, 0);
-      return { periodKey: m, periodLabel: formatMonthLabel(m), revenue: revenueValue, expenses, grossProfit, ebitda, netProfit, netMargin, groups: found?.groups || { 'Pendapatan Pelayanan Medis': 0, 'Pendapatan Farmasi': 0, 'Pendapatan Lainnya': 0, 'Beban Jasa Medis': 0, 'Beban Persediaan': 0, 'Beban Farmasi': 0, 'Beban Gaji': 0, 'Beban Administrasi': 0, 'Beban Utilitas': 0, 'Beban Penyusutan': 0, 'Beban Lainnya': 0 }, directExpense, operationalExpense, nonOperationalExpense, tax };
+      const tax = fallback.tax ?? found?.tax ?? Math.max((ebitda - netProfit) * 0.4, 0);
+      return { periodKey: m, periodLabel: formatMonthLabel(m), revenue: revenueValue, expenses, grossProfit, ebitda, netProfit, netMargin, groups: found?.groups || { 'Pendapatan Pelayanan Medis': 0, 'Pendapatan Farmasi': 0, 'Pendapatan Lainnya': 0, 'Beban Jasa Medis': 0, 'Beban Persediaan': 0, 'Beban Farmasi': 0, 'Beban Gaji': 0, 'Beban Administrasi': 0, 'Beban Utilitas': 0, 'Beban Penyusutan': 0, 'Beban Lainnya': 0, 'Beban Pajak': tax }, directExpense, operationalExpense, nonOperationalExpense, tax };
     });
-  }, [fees, payroll, rows, selectedMonths]);
+  }, [fees, payroll, rows, selectedMonths, taxes]);
 
   const summary = filterMode === 'monthRange' ? calculateProfitLossSummary(monthlyData) : (() => {
     const dateFilteredRows = dateError ? [] : filterTransactionsByDateRange(rows, startDate, endDate);
     const effectiveFees = fees.filter((f) => f.actionDate >= startDate && f.actionDate <= endDate);
     const effectivePayroll = payroll.filter((p) => p.period >= startDate.slice(0, 7) && p.period <= endDate.slice(0, 7));
-    const calc = calculateProfitLoss(dateFilteredRows, effectiveFees, effectivePayroll);
+    const effectiveTaxes = taxes.filter((t) => t.date >= startDate && t.date <= endDate);
+    const calc = calculateProfitLoss(dateFilteredRows, effectiveFees, effectivePayroll, effectiveTaxes);
     return { totalRevenue: calc.revenue, totalExpenses: calc.totalExpenses, grossProfit: calc.grossProfit, ebitda: calc.ebitda, netProfit: calc.netProfit, netMargin: calc.netMargin };
   })();
 
