@@ -15,7 +15,11 @@ export function PaymentRequestPage({ rows, setRows, vendors }: { rows: PaymentRe
   const [error, setError] = React.useState('');
   const [editing, setEditing] = React.useState<PaymentRequest | null>(null);
 
-  const numberPreview = React.useMemo(() => editing ? generateVendorPaymentRequestNumber({ type: editing.requestCategory, date: editing.requestDate, existingRows: rows.filter((r) => r.id !== editing.id) }) : '', [editing, rows]);
+  const numberPreview = React.useMemo(() => {
+    if (!editing) return '';
+    if (editing.requestNo) return editing.requestNo;
+    return generateVendorPaymentRequestNumber({ type: editing.requestCategory, date: editing.requestDate, existingRows: rows.filter((r) => r.id !== editing.id) });
+  }, [editing, rows]);
 
   const openCreate = () => {
     const draft: PaymentRequest = {
@@ -29,12 +33,18 @@ export function PaymentRequestPage({ rows, setRows, vendors }: { rows: PaymentRe
   const save = () => {
     if (!editing) return;
     if (!editing.requestDate || !editing.requestCategory || !editing.vendorId || editing.amount <= 0) { setError('Tanggal, tipe, vendor wajib diisi. Amount harus lebih besar dari 0.'); return; }
-    let finalNo = generateVendorPaymentRequestNumber({ type: editing.requestCategory, date: editing.requestDate, existingRows: rows.filter((r) => r.id !== editing.id) });
-    while (rows.some((r) => r.id !== editing.id && r.requestNo === finalNo)) {
-      finalNo = generateVendorPaymentRequestNumber({ type: editing.requestCategory, date: editing.requestDate, existingRows: [...rows.filter((r) => r.id !== editing.id), { ...editing, requestNo: finalNo }] });
+    const existingRecord = rows.find((r) => r.id === editing.id);
+    let finalNo = existingRecord?.requestNo || editing.requestNo;
+
+    if (!finalNo) {
+      finalNo = generateVendorPaymentRequestNumber({ type: editing.requestCategory, date: editing.requestDate, existingRows: rows.filter((r) => r.id !== editing.id) });
+      while (rows.some((r) => r.id !== editing.id && r.requestNo === finalNo)) {
+        finalNo = generateVendorPaymentRequestNumber({ type: editing.requestCategory, date: editing.requestDate, existingRows: [...rows.filter((r) => r.id !== editing.id), { ...editing, requestNo: finalNo }] });
+      }
     }
+
     const payload = { ...editing, requestNo: finalNo };
-    const next = rows.some((r) => r.id === editing.id) ? rows.map((r) => r.id === editing.id ? payload : r) : [payload, ...rows];
+    const next = existingRecord ? rows.map((r) => r.id === editing.id ? payload : r) : [payload, ...rows];
     setRows(next);
     writeStorage('payment-requests', next);
     addAudit('Pengajuan Pembayaran Vendor', rows.some((r) => r.id === editing.id) ? 'update' : 'create', payload.id, payload.requestNo, `Pengajuan vendor ${payload.requestNo} disimpan`);
