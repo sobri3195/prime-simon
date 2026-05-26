@@ -1,12 +1,12 @@
-import type { APItem, ARItem, DoctorFee, FixedAsset, InventoryItem, PayrollRecord, RevenueTransaction, Voucher } from '@/lib/types';
+import type { APItem, ARItem, DoctorFee, FixedAsset, InventoryItem, PayrollRecord, RevenueTransaction, TaxItem, Voucher } from '@/lib/types';
 import { calculateProfitLoss, type ProfitLossDataRow } from '@/lib/profitLossCalculations';
 import { calculateBalanceSheet, type BalanceSheetRow } from './balanceSheetCalculations';
 import type { FinancialDetailItem } from '@/components/financialReports/ExpandableFinancialRow';
 
 export const calculatePercentage = (value: number, total: number) => total ? (value / total) * 100 : 0;
 
-export function getProfitLossDetails(groupKey: string, rows: ProfitLossDataRow[], fees: DoctorFee[], payroll: PayrollRecord[]): { formula?: string; details: FinancialDetailItem[] } {
-  const calc = calculateProfitLoss(rows, fees, payroll);
+export function getProfitLossDetails(groupKey: string, rows: ProfitLossDataRow[], fees: DoctorFee[], payroll: PayrollRecord[], taxes: TaxItem[] = []): { formula?: string; details: FinancialDetailItem[] } {
+  const calc = calculateProfitLoss(rows, fees, payroll, taxes);
   if (groupKey === 'revenue') {
     const total = calc.revenue;
     const raw: Array<{ label: string; amount: number; source: string }> = [
@@ -36,11 +36,11 @@ export function getProfitLossDetails(groupKey: string, rows: ProfitLossDataRow[]
     { id: 'o-4', label: 'Beban Utilitas', amount: calc.groups['Beban Utilitas'] },
     { id: 'o-5', label: 'Beban Sewa', amount: 0, note: 'Belum tersedia' },
     { id: 'o-6', label: 'Beban Penyusutan', amount: calc.groups['Beban Penyusutan'] },
-    { id: 'o-7', label: 'Beban Pajak', amount: calc.revenue * 0.01 },
+    { id: 'o-7', label: 'Beban Pajak', amount: calc.taxExpense },
     { id: 'o-8', label: 'Beban lain-lain', amount: calc.groups['Beban Lainnya'] },
   ] };
   if (groupKey === 'ebitda') return { formula: 'EBITDA = Laba Bersih + Pajak + Bunga + Penyusutan + Amortisasi', details: [
-    { id: 'e-1', label: 'Laba Bersih', amount: calc.netProfit }, { id: 'e-2', label: 'Pajak', amount: calc.revenue * 0.01 }, { id: 'e-3', label: 'Bunga', amount: 0, note: 'Belum tersedia' }, { id: 'e-4', label: 'Penyusutan', amount: calc.groups['Beban Penyusutan'] }, { id: 'e-5', label: 'Amortisasi', amount: 0, note: 'Belum tersedia' }, { id: 'e-6', label: 'EBITDA', amount: calc.ebitda, isTotal: true },
+    { id: 'e-1', label: 'Laba Bersih', amount: calc.netProfit }, { id: 'e-2', label: 'Pajak', amount: calc.taxExpense }, { id: 'e-3', label: 'Bunga', amount: calc.interestExpense, note: 'Belum tersedia' }, { id: 'e-4', label: 'Penyusutan', amount: calc.groups['Beban Penyusutan'] }, { id: 'e-5', label: 'Amortisasi', amount: calc.amortizationExpense, note: 'Belum tersedia' }, { id: 'e-6', label: 'EBITDA', amount: calc.ebitda, isTotal: true },
   ] };
   return { formula: 'Laba Bersih = Total Pendapatan - Total Beban', details: [
     { id: 'n-1', label: 'Total Pendapatan', amount: calc.revenue }, { id: 'n-2', label: 'Total Beban', amount: calc.totalExpenses }, { id: 'n-3', label: 'Selisih / Laba Bersih', amount: calc.netProfit, isTotal: true }, { id: 'n-4', label: 'Margin Bersih', percentage: calc.netMargin },

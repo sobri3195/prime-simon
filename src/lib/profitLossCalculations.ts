@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import type { DoctorFee, PayrollRecord, RevenueTransaction } from './types';
+import type { DoctorFee, PayrollRecord, RevenueTransaction, TaxItem } from './types';
 
 export type ProfitLossFilterMode = 'dateRange' | 'monthRange';
 export type ProfitLossDataRow = RevenueTransaction & { rowType: 'revenue' };
@@ -33,7 +33,17 @@ export const filterTransactionsByMonths = (rows: ProfitLossDataRow[], selectedMo
 
 const sum = (arr: number[]) => arr.reduce((a, b) => a + (Number(b) || 0), 0);
 
-export function calculateProfitLoss(rows: ProfitLossDataRow[], fees: DoctorFee[], payroll: PayrollRecord[]) {
+export const NON_PASS_THROUGH_TAX_TYPES: TaxItem['taxType'][] = ['PPh21', 'PPh23', 'PPhHonorDokter'];
+
+export function sumTaxExpense(taxes: TaxItem[]) {
+  return sum(taxes.filter((t) => NON_PASS_THROUGH_TAX_TYPES.includes(t.taxType)).map((t) => t.pph || 0));
+}
+
+export function calculateEbitdaFromComponents(netProfit: number, taxExpense: number, interestExpense: number, depreciationExpense: number, amortizationExpense: number) {
+  return (Number(netProfit) || 0) + (Number(taxExpense) || 0) + (Number(interestExpense) || 0) + (Number(depreciationExpense) || 0) + (Number(amortizationExpense) || 0);
+}
+
+export function calculateProfitLoss(rows: ProfitLossDataRow[], fees: DoctorFee[], payroll: PayrollRecord[], taxes: TaxItem[] = []) {
   const revenue = sum(rows.map((r) => r.netAmount));
   const directMedicalFees = sum(fees.map((f) => f.netAmount));
   const inventoryExpense = revenue * 0.1;
@@ -47,9 +57,12 @@ export function calculateProfitLoss(rows: ProfitLossDataRow[], fees: DoctorFee[]
   const otherOperational = revenue * 0.01;
   const operationalExpense = salaryExpense + adminExpense + utilityExpense + depreciationExpense + otherOperational;
 
-  const ebitda = grossProfit - (salaryExpense + adminExpense + utilityExpense + otherOperational);
   const totalExpenses = directExpense + operationalExpense;
   const netProfit = revenue - totalExpenses;
+  const taxExpense = sumTaxExpense(taxes);
+  const interestExpense = 0;
+  const amortizationExpense = 0;
+  const ebitda = calculateEbitdaFromComponents(netProfit, taxExpense, interestExpense, depreciationExpense, amortizationExpense);
 
   return {
     revenue,
@@ -58,6 +71,9 @@ export function calculateProfitLoss(rows: ProfitLossDataRow[], fees: DoctorFee[]
     ebitda,
     netProfit,
     netMargin: calculateMargin(netProfit, revenue),
+    taxExpense,
+    interestExpense,
+    amortizationExpense,
     groups: {
       'Pendapatan Pelayanan Medis': sum(rows.filter((r) => ['Konsultasi', 'Tindakan Medis', 'Operasi', 'Laboratorium'].includes(r.serviceCategory)).map((r) => r.netAmount)),
       'Pendapatan Farmasi': sum(rows.filter((r) => r.serviceCategory === 'Farmasi').map((r) => r.netAmount)),
@@ -70,15 +86,16 @@ export function calculateProfitLoss(rows: ProfitLossDataRow[], fees: DoctorFee[]
       'Beban Utilitas': utilityExpense,
       'Beban Penyusutan': depreciationExpense,
       'Beban Lainnya': otherOperational,
+      'Beban Pajak': taxExpense,
     },
   };
 }
 
-export function groupProfitLossByMonth(rows: ProfitLossDataRow[], selectedMonths: string[], fees: DoctorFee[], payroll: PayrollRecord[]) {
+export function groupProfitLossByMonth(rows: ProfitLossDataRow[], selectedMonths: string[], fees: DoctorFee[], payroll: PayrollRecord[], taxes: TaxItem[]) {
   const months = [...selectedMonths].sort((a, b) => a.localeCompare(b));
   return months.map((periodKey) => {
     const monthRows = rows.filter((r) => r.date.slice(0, 7) === periodKey);
-    const monthCalc = calculateProfitLoss(monthRows, fees.filter((f) => f.actionDate.slice(0, 7) === periodKey), payroll.filter((p) => p.period === periodKey));
+    const monthCalc = calculateProfitLoss(monthRows, fees.filter((f) => f.actionDate.slice(0, 7) === periodKey), payroll.filter((p) => p.period === periodKey), taxes.filter((t) => t.period === periodKey || t.date.slice(0, 7) === periodKey));
     return {
       periodKey,
       periodLabel: formatMonthLabel(periodKey),
@@ -89,6 +106,7 @@ export function groupProfitLossByMonth(rows: ProfitLossDataRow[], selectedMonths
       netProfit: monthCalc.netProfit,
       netMargin: monthCalc.netMargin,
       groups: monthCalc.groups,
+      tax: monthCalc.taxExpense,
     };
   });
 }
