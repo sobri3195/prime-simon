@@ -10,6 +10,8 @@ import type { APItem, ARItem, Doctor, DoctorFee, PayrollRecord, RevenueTransacti
 import { Activity, Banknote, ChevronDown, CircleDollarSign, Download, Landmark, PlusCircle, Receipt, ReceiptText, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { buildPayerPieSeriesByPeriods, calculateDoctorRevenuePercentage, calculatePeriodComparison, filterRevenueByDateRange, filterRevenueByPayer, formatCurrency, formatPercent, getMonthRange, getTopDoctorsByRevenue, groupRevenueByDoctor } from '@/utils/chartData';
 import { calculateAlertSummary, formatAgingDays, formatCurrency as formatAlertCurrency, formatDateID, getDuePayables, getDueReceivables, getStatusBadgeClass, getUnreconciledTransactions } from '@/utils/financeAlerts';
+import { toast } from '@/lib/toast';
+import * as XLSX from 'xlsx';
 
 const DUMMY_PAYER_PERIOD_DATA: Record<string, Record<string, number>> = {
   '2026-04': { 'Perusahaan Mitra A': 2900000, 'Corporate Sample': 2100000, 'Asuransi Sehat A': 1800000, 'Pasien Umum': 950000 },
@@ -125,16 +127,60 @@ export function Dashboard({ revenue, doctors, fees, ar, ap, payroll, settings }:
   ];
 
   const exportAlertRows = () => {
-    const today = new Date().toISOString().slice(0, 10);
+    if (!activeAlert) return;
     const rows = activeAlert === 'receivables' ? dueReceivables : activeAlert === 'payables' ? duePayables : unreconciledTransactions;
-    const headers = activeAlert === 'reconciliation' ? ['Tanggal','Referensi','Sumber','Deskripsi','Nominal','Status'] : activeAlert === 'payables' ? ['Tanggal Invoice','Invoice','Vendor','Outstanding','Aging','Status'] : ['Tanggal Layanan','Invoice','Payer','Pasien','Outstanding','Aging','Status'];
-    const body = rows.slice(0, 5).map((row: any) => activeAlert === 'reconciliation' ? [row.date, row.reference, row.source, row.description, row.amount, row.reconciliationStatus] : activeAlert === 'payables' ? [row.invoiceDate, row.invoiceNo, row.vendorName, row.outstandingAmount, row.aging, row.status] : [row.serviceDate, row.invoiceNo, row.payerName, row.patientName, row.outstandingAmount, row.aging, row.status]);
-    const csv = [headers.join(','), ...body.map((line:any[]) => line.join(','))].join('\n');
+    if (rows.length === 0) {
+      toast.warning(activeAlert === 'receivables' ? 'Tidak ada data piutang jatuh tempo untuk diexport.' : activeAlert === 'payables' ? 'Tidak ada data hutang jatuh tempo untuk diexport.' : 'Tidak ada data rekonsiliasi untuk diexport.');
+      return;
+    }
+
+    const periodKey = `${activeYear}-${String(activeMonth).padStart(2, '0')}`;
+    const periodLabel = `${monthNameID(activeMonth)} ${activeYear}`;
+    const fileDateSuffix = `${activeYear}-${String(activeMonth).padStart(2, '0')}`;
     const typeName = activeAlert === 'receivables' ? 'piutang-jatuh-tempo' : activeAlert === 'payables' ? 'hutang-jatuh-tempo' : 'data-belum-rekonsiliasi';
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const summary = calculateAlertSummary(rows, activeAlert);
+    const exportRows = rows.map((row: any, index: number) => activeAlert === 'reconciliation'
+      ? ({ No: index + 1, Tanggal: formatDateID(row.date), Referensi: row.reference, Sumber: row.source, Deskripsi: row.description || '-', Nominal: Number(row.amount || 0), Status: row.reconciliationStatus || '-' })
+      : activeAlert === 'payables'
+        ? ({ No: index + 1, 'Tanggal Invoice': formatDateID(row.invoiceDate), Invoice: row.invoiceNo, Vendor: row.vendorName, Outstanding: Number(row.outstandingAmount || 0), Aging: Number(row.aging || 0), Status: row.status || '-' })
+        : ({ No: index + 1, 'Tanggal Layanan': formatDateID(row.serviceDate), Invoice: row.invoiceNo, Payer: row.payerName, Pasien: row.patientName || '-', Outstanding: Number(row.outstandingAmount || 0), Aging: Number(row.aging || 0), Status: row.status || '-' }));
+
+    const summaryRows = [
+      ['Nama Klinik', 'Klinik Utama Prime Mata'],
+      ['Jenis Laporan', activeAlert === 'receivables' ? 'Piutang Jatuh Tempo' : activeAlert === 'payables' ? 'Hutang Jatuh Tempo' : 'Data Belum Rekonsiliasi'],
+      ['Periode', `${periodLabel} (${periodKey})`],
+      ['Total Invoice', summary.count],
+      ['Total Outstanding', summary.total],
+      [activeAlert === 'receivables' ? 'Payer Terbesar' : activeAlert === 'payables' ? 'Vendor Terbesar' : 'Sumber Terbanyak', summary.topEntity],
+      ['Aging Terlama', activeAlert === 'reconciliation' ? '-' : summary.maxAging || 0],
+    ];
+
+    const sheet = XLSX.utils.aoa_to_sheet(summaryRows);
+    XLSX.utils.sheet_add_json(sheet, exportRows, { origin: 'A10', skipHeader: false });
+    const currencyColumn = activeAlert === 'reconciliation' ? 'F' : activeAlert === 'payables' ? 'E' : 'F';
+    const agingColumn = activeAlert === 'reconciliation' ? '' : activeAlert === 'payables' ? 'F' : 'G';
+    for (let i = 0; i < exportRows.length; i += 1) {
+      const rowNo = i + 11;
+      const currencyCell = sheet[`${currencyColumn}${rowNo}`];
+      if (currencyCell) currencyCell.z = '[$Rp-421] #,##0';
+      if (agingColumn) {
+        const agingCell = sheet[`${agingColumn}${rowNo}`];
+        if (agingCell) agingCell.z = '0" hari"';
+      }
+    }
+    if (sheet.B5) sheet.B5.z = '[$Rp-421] #,##0';
+    if (sheet.B7 && activeAlert !== 'reconciliation') sheet.B7.z = '0" hari"';
+    sheet['!cols'] = [{ wch: 6 }, { wch: 20 }, { wch: 20 }, { wch: 24 }, { wch: 24 }, { wch: 16 }, { wch: 12 }, { wch: 14 }];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, sheet, 'Finance Alerts');
+    const wbArray = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = url; link.download = `${typeName}-klinik-utama-prime-mata-${today}.csv`; link.click();
+    link.href = url;
+    link.download = `${typeName}-klinik-utama-prime-mata-${fileDateSuffix}.xlsx`;
+    link.click();
     URL.revokeObjectURL(url);
   };
 
