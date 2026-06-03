@@ -9,6 +9,7 @@ import { createSeedData } from '@/lib/seed';
 import { addAudit, loadFromStorage, removeFromStorage, saveToStorage, writeStorage } from '@/lib/storage';
 import { rupiahTerbilang } from '@/lib/terbilang';
 import { cn } from '@/lib/utils';
+import { useQuickExport } from '@/lib/exportRegistry';
 import type { AppData, Voucher } from '@/lib/types';
 
 const APP_NAME = 'Klinik Utama Prime Mata';
@@ -260,6 +261,11 @@ export function VoucherPage({ rows, setRows }: { rows: Voucher[]; setRows: (r: V
     } catch (err) { console.error(err); setExportMessage('Export gagal. Coba lagi.'); }
   }, [getExportMeta, sortedRows, totalAmount, visibleColumnDefs]);
 
+  useQuickExport('voucher', React.useCallback(() => runExport('csv'), [runExport]));
+  useQuickExport('voucher-bbk', React.useCallback(() => runExport('csv'), [runExport]));
+  useQuickExport('voucher-bkk', React.useCallback(() => runExport('csv'), [runExport]));
+  useQuickExport('voucher-kk', React.useCallback(() => runExport('csv'), [runExport]));
+  useQuickExport('voucher-kkm', React.useCallback(() => runExport('csv'), [runExport]));
   React.useEffect(() => { const handler = () => runExport('csv'); window.addEventListener('prime:voucher-quick-export', handler); return () => window.removeEventListener('prime:voucher-quick-export', handler); }, [runExport]);
 
   const openCreate = () => { setEditingVoucher(createBlankVoucher(vouchers)); setFormMode('create'); setFormErrors({}); setFeedbackMessage(''); };

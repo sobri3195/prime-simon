@@ -16,7 +16,7 @@ export function AppLayout({ current, onNavigate, children, onReset, profile, set
   return (
     <div className="app-shell min-h-screen bg-[#f4f8fb] finance-grid">
       <SidebarNav current={current} onNavigate={onNavigate} collapsed={collapsed} onToggle={() => setCollapsed(v => !v)} />
-      <Topbar title={title} onMenu={() => setOpen(true)} onReset={onReset} onNavigate={onNavigate} profile={profile} settings={settings} collapsed={collapsed} />
+      <Topbar title={title} current={current} onMenu={() => setOpen(true)} onReset={onReset} onNavigate={onNavigate} profile={profile} settings={settings} collapsed={collapsed} />
       <Dialog open={open}>
         <div className="mb-3 flex items-center justify-between">
           <div><b>Menu</b><p className="text-sm text-slate-500">Pilih modul finance operations.</p></div>

@@ -4,17 +4,21 @@ import { readStorage, removeFromStorage, resetDemoData } from '@/lib/storage';
 import type { ClinicProfile, Settings } from '@/lib/types';
 import { Button, Input, Badge, Dialog } from '../ui/basic';
 import { AppLogo } from './AppLogo';
+import { triggerQuickExport } from '@/lib/exportRegistry';
 
 const monthName = (m: number) => new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(new Date(2026, m - 1, 1));
 const money = (n: number) => new Intl.NumberFormat('id-ID').format(n || 0);
 
 type SearchResult = { module: string; page: string; title: string; subtitle: string; date: string; amount: number; blob: string };
 
-export function Topbar({ title, onMenu, onReset, onNavigate, profile, settings, collapsed = false }: { title: string; onMenu: () => void; onReset: () => void; onNavigate: (id: string) => void; profile: ClinicProfile; settings: Settings; collapsed?: boolean }) {
+export function Topbar({ title, current, onMenu, onReset, onNavigate, profile, settings, collapsed = false }: { title: string; current: string; onMenu: () => void; onReset: () => void; onNavigate: (id: string) => void; profile: ClinicProfile; settings: Settings; collapsed?: boolean }) {
   const [query, setQuery] = React.useState('');
   const [open, setOpen] = React.useState(false);
   const [actionsOpen, setActionsOpen] = React.useState(false);
-  const quickExport = () => { window.dispatchEvent(new CustomEvent('prime:voucher-quick-export')); };
+  const quickExport = () => {
+    const handled = triggerQuickExport(current, { source: 'topbar' });
+    window.dispatchEvent(new CustomEvent('prime:quick-export', { detail: { page: current, handled } }));
+  };
   const resetDemo = () => { ['prime_finance_vouchers', 'prime_finance_voucher_visible_columns', 'prime_finance_voucher_rows_per_page', 'prime_finance_voucher_selected_type', 'prime_finance_voucher_search', 'prime_finance_voucher_sort', 'prime_finance_active_period'].forEach(removeFromStorage); window.dispatchEvent(new CustomEvent('prime:voucher-reset-demo')); resetDemoData(); onReset(); };
   const periodText = `${monthName(settings.activeMonth ?? settings.defaultMonth)} ${settings.activeYear ?? settings.defaultYear}`;
   const results = React.useMemo(() => {

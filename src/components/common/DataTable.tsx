@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { copyTableToClipboard, exportToCSV, exportToExcel, exportToJSON, exportToPDF, printTable, type ExportColumn } from '@/lib/export';
 import { formatCurrency, formatDate, formatNumber, safeString } from '@/lib/format';
 import { toast } from '@/lib/toast';
+import { useQuickExport } from '@/lib/exportRegistry';
 
 export type DataTableColumn<T> = {
   key: keyof T | string;
@@ -35,6 +36,16 @@ export type DataTableProps<T> = {
   rows?: T[];
   columns: DataTableColumn<T>[];
   filename?: string;
+  quickExportPageId?: string;
+  exportSheetName?: string;
+  exportMeta?: Record<string, unknown>;
+  exportMetaRows?: (string | number)[][];
+  exportFooterRows?: (string | number)[][];
+  exportPdfTitle?: string;
+  exportPdfSubtitle?: string;
+  exportPdfSummary?: { label: string; value: string | number }[];
+  exportOrientation?: 'portrait' | 'landscape';
+  onExport?: (type: 'copy' | 'csv' | 'json' | 'excel' | 'pdf' | 'print', rowCount: number) => void;
   searchable?: boolean;
   searchPlaceholder?: string;
   enableExport?: boolean;
@@ -150,6 +161,16 @@ export function DataTable<T extends Record<string, unknown> | object>({
   rows,
   columns,
   filename,
+  quickExportPageId,
+  exportSheetName,
+  exportMeta,
+  exportMetaRows,
+  exportFooterRows,
+  exportPdfTitle,
+  exportPdfSubtitle,
+  exportPdfSummary,
+  exportOrientation,
+  onExport,
   searchable = true,
   searchPlaceholder = 'Cari data...',
   enableExport = true,
@@ -239,15 +260,18 @@ export function DataTable<T extends Record<string, unknown> | object>({
     try {
       if (type === 'copy') { await copyTableToClipboard(exportPayload); toast.success('Data berhasil disalin ke clipboard'); }
       if (type === 'csv') { exportToCSV(exportPayload); toast.success('CSV berhasil diexport'); }
-      if (type === 'json') { exportToJSON(exportPayload); toast.success('JSON berhasil diexport'); }
-      if (type === 'excel') { exportToExcel({ ...exportPayload, sheetName: 'Data' }); toast.success('Excel berhasil diexport'); }
-      if (type === 'pdf') { exportToPDF({ ...exportPayload, title: title || 'Data', subtitle: description }); toast.success('PDF berhasil diexport'); }
-      if (type === 'print') { printTable({ ...exportPayload, title: title || 'Data', subtitle: description }); toast.success('Print dibuka'); }
+      if (type === 'json') { exportToJSON({ ...exportPayload, meta: exportMeta }); toast.success('JSON berhasil diexport'); }
+      if (type === 'excel') { exportToExcel({ ...exportPayload, sheetName: exportSheetName || 'Data', meta: exportMeta, metaRows: exportMetaRows, footerRows: exportFooterRows }); toast.success('Excel berhasil diexport'); }
+      if (type === 'pdf') { exportToPDF({ ...exportPayload, title: exportPdfTitle || title || 'Data', subtitle: exportPdfSubtitle ?? description, summary: exportPdfSummary, orientation: exportOrientation }); toast.success('PDF berhasil diexport'); }
+      if (type === 'print') { printTable({ ...exportPayload, title: exportPdfTitle || title || 'Data', subtitle: exportPdfSubtitle ?? description, summary: exportPdfSummary }); toast.success('Print dibuka'); }
+      onExport?.(type, sortedRows.length);
     } catch (error) {
       console.error(error);
       toast.error(type === 'copy' ? 'Gagal menyalin data' : 'Belum ada data untuk diekspor.');
     }
   };
+
+  useQuickExport(quickExportPageId, React.useCallback(() => { void runExport('excel'); }, [runExport]));
 
   const handleSort = (column: DataTableColumn<T>) => {
     if (!enableSorting || column.enableSorting === false) return;
