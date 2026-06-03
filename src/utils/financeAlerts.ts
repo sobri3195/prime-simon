@@ -19,23 +19,48 @@ export function formatAgingDays(days: number) {
   return `${Math.max(0, Math.round(days))} hari`;
 }
 
+export type DueReceivable = ARItem & {
+  dueDate: string;
+  aging: number;
+  agingDays: number;
+  overdueStatus: 'Jatuh Tempo' | 'Perlu Follow-up' | 'Prioritas Tinggi';
+};
+
+export function getReceivableOverdueStatus(days: number): DueReceivable['overdueStatus'] {
+  if (days > 60) return 'Prioritas Tinggi';
+  if (days > 30) return 'Perlu Follow-up';
+  return 'Jatuh Tempo';
+}
+
 export function getStatusBadgeClass(status: string) {
   const normalized = status.toLowerCase();
+  if (normalized.includes('prioritas tinggi')) return 'bg-red-100 text-red-700 border-red-200';
+  if (normalized.includes('perlu follow-up')) return 'bg-orange-100 text-orange-700 border-orange-200';
+  if (normalized.includes('jatuh tempo')) return 'bg-amber-100 text-amber-700 border-amber-200';
   if (normalized.includes('overdue') || normalized.includes('selisih')) return 'bg-rose-100 text-rose-700 border-rose-200';
   if (normalized.includes('pending') || normalized.includes('open')) return 'bg-amber-100 text-amber-700 border-amber-200';
   return 'bg-sky-100 text-sky-700 border-sky-200';
 }
 
-export function getDueReceivables(rows: ARItem[], referenceDate: Date) {
+export function getDueReceivables(rows: ARItem[], referenceDate: Date): DueReceivable[] {
   return rows
     .map((row) => {
-      const dueDate = toDate(row.invoiceDate) || toDate(row.serviceDate);
-      const fallbackDue = dueDate ? new Date(dueDate.getTime() + DEFAULT_TERM_DAYS * DAY) : referenceDate;
-      const aging = daysDiff(referenceDate, fallbackDue);
-      return { ...row, dueDate: fallbackDue.toISOString().slice(0, 10), aging };
+      const explicitDueDate = toDate((row as ARItem & { dueDate?: string }).dueDate);
+      const invoiceDate = toDate(row.invoiceDate);
+      const serviceDate = toDate(row.serviceDate);
+      const baseDate = invoiceDate || serviceDate;
+      const dueDate = explicitDueDate || (baseDate ? new Date(baseDate.getTime() + DEFAULT_TERM_DAYS * DAY) : referenceDate);
+      const agingDays = daysDiff(referenceDate, dueDate);
+      return {
+        ...row,
+        dueDate: dueDate.toISOString().slice(0, 10),
+        aging: agingDays,
+        agingDays,
+        overdueStatus: getReceivableOverdueStatus(agingDays),
+      };
     })
-    .filter((row) => row.outstandingAmount > 0 && (row.status.toLowerCase().includes('overdue') || row.aging > 0))
-    .sort((a, b) => b.aging - a.aging);
+    .filter((row) => row.outstandingAmount > 0 && row.agingDays > 0)
+    .sort((a, b) => (b.agingDays - a.agingDays) || (b.outstandingAmount - a.outstandingAmount));
 }
 
 export function getDuePayables(rows: APItem[], referenceDate: Date) {
@@ -79,12 +104,26 @@ export function calculateAlertSummary(rows: any[], type: 'receivables' | 'payabl
   if (type === 'receivables') {
     const byPayer = rows.reduce((acc, row) => { acc[row.payerName] = (acc[row.payerName] || 0) + row.outstandingAmount; return acc; }, {} as Record<string, number>);
     const top = Object.entries(byPayer).sort((a, b) => Number(b[1]) - Number(a[1]))[0]?.[0] || '-';
-    return { total: rows.reduce((sum, row) => sum + row.outstandingAmount, 0), count: rows.length, topEntity: top, maxAging: Math.max(0, ...rows.map((row) => row.aging || 0)) };
+    return {
+      total: rows.reduce((sum, row) => sum + row.outstandingAmount, 0),
+      count: rows.length,
+      topEntity: top,
+      maxAging: Math.max(0, ...rows.map((row) => row.agingDays || row.aging || 0)),
+      earliestDueDate: rows.map((row) => row.dueDate).filter(Boolean).sort()[0] || '',
+      latestDueDate: rows.map((row) => row.dueDate).filter(Boolean).sort().slice(-1)[0] || '',
+    };
   }
   if (type === 'payables') {
     const byVendor = rows.reduce((acc, row) => { acc[row.vendorName] = (acc[row.vendorName] || 0) + row.outstandingAmount; return acc; }, {} as Record<string, number>);
     const top = Object.entries(byVendor).sort((a, b) => Number(b[1]) - Number(a[1]))[0]?.[0] || '-';
-    return { total: rows.reduce((sum, row) => sum + row.outstandingAmount, 0), count: rows.length, topEntity: top, maxAging: Math.max(0, ...rows.map((row) => row.aging || 0)) };
+    return {
+      total: rows.reduce((sum, row) => sum + row.outstandingAmount, 0),
+      count: rows.length,
+      topEntity: top,
+      maxAging: Math.max(0, ...rows.map((row) => row.agingDays || row.aging || 0)),
+      earliestDueDate: rows.map((row) => row.dueDate).filter(Boolean).sort()[0] || '',
+      latestDueDate: rows.map((row) => row.dueDate).filter(Boolean).sort().slice(-1)[0] || '',
+    };
   }
   const bySource = rows.reduce((acc, row) => { acc[row.source] = (acc[row.source] || 0) + 1; return acc; }, {} as Record<string, number>);
   const byStatus = rows.reduce((acc, row) => { acc[row.reconciliationStatus] = (acc[row.reconciliationStatus] || 0) + 1; return acc; }, {} as Record<string, number>);

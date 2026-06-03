@@ -23,6 +23,8 @@ type RowWithAging = ARItem & {
   statusLabel: 'Current' | 'Warning' | 'Overdue';
 };
 
+const AR_FILTER_PRESET_KEY = 'prime_finance_ar_filter_preset';
+
 const BUCKET_COLORS: Record<AgingBucket, string> = { '0-30': '#22c55e', '31-60': '#f59e0b', '>60': '#ef4444' };
 const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'all';
 
@@ -50,6 +52,28 @@ export function ARAgingPage({ rows, payers }: { rows: ARItem[]; payers: Payer[] 
   const [from, setFrom] = React.useState(defaults.from);
   const [to, setTo] = React.useState(defaults.to);
   const [payerFilter, setPayerFilter] = React.useState('ALL');
+
+  React.useEffect(() => {
+    const rawPreset = localStorage.getItem(AR_FILTER_PRESET_KEY);
+    if (!rawPreset) return;
+    try {
+      const preset = JSON.parse(rawPreset) as { from?: string; to?: string; payer?: string; source?: string };
+      if (preset.source === 'finance-alert-due-receivables' && isValidDateString(preset.from) && isValidDateString(preset.to)) {
+        const nextPayer = preset.payer || 'ALL';
+        setDraftFrom(preset.from);
+        setDraftTo(preset.to);
+        setDraftPayer(nextPayer);
+        setFrom(preset.from);
+        setTo(preset.to);
+        setPayerFilter(nextPayer);
+        toast.success('Filter Aging Piutang dari Finance Alerts berhasil diterapkan.');
+      }
+    } catch {
+      toast.error('Preset filter Aging Piutang tidak valid.');
+    } finally {
+      localStorage.removeItem(AR_FILTER_PRESET_KEY);
+    }
+  }, []);
 
   const payerOptions = React.useMemo(() => ['ALL', ...payers.map((p) => p.name)], [payers]);
 
