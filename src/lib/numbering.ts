@@ -30,8 +30,16 @@ export function isDuplicateDocumentNumber(value: string, existing: string[], cur
 
 const REQUEST_TYPES = ['MEDIS', 'UMUM'] as const;
 type VendorRequestType = typeof REQUEST_TYPES[number];
+export type ParsedVendorPaymentRequestNumber = {
+  sequence: number;
+  category: VendorRequestType;
+  clinicCode: string;
+  financeCode: string;
+  romanMonth: string;
+  year: number;
+};
 
-function normalizeRequestType(value: string): VendorRequestType {
+export function normalizeVendorPaymentRequestCategory(value: string): VendorRequestType {
   return value?.toUpperCase() === 'UMUM' ? 'UMUM' : 'MEDIS';
 }
 
@@ -40,20 +48,43 @@ function toDateParts(value: string | Date) {
   return { month: d.getMonth() + 1, year: d.getFullYear() };
 }
 
-export function generateVendorPaymentRequestNumber({ type, date, existingRows }: { type: string; date: string | Date; existingRows: Array<{ requestNo?: string; requestCategory?: string; requestDate?: string }> }) {
-  const normalizedType = normalizeRequestType(type);
+export function parseVendorPaymentRequestNumber(requestNo: string): ParsedVendorPaymentRequestNumber | null {
+  const match = requestNo.trim().match(/^(\d{3})\/(MEDIS|UMUM)\/([A-Z0-9]+)-([A-Z0-9]+)\/([IVXLCDM]+)\/(\d{4})$/i);
+  if (!match) return null;
+  const [, sequenceText, categoryText, clinicCode, financeCode, romanMonthText, yearText] = match;
+  const romanMonth = romanMonthText.toUpperCase();
+  if (romanMonths.indexOf(romanMonth) <= 0) return null;
+  const sequence = Number(sequenceText);
+  const year = Number(yearText);
+  if (!Number.isInteger(sequence) || sequence <= 0 || !Number.isInteger(year)) return null;
+  return {
+    sequence,
+    category: normalizeVendorPaymentRequestCategory(categoryText),
+    clinicCode: clinicCode.toUpperCase(),
+    financeCode: financeCode.toUpperCase(),
+    romanMonth,
+    year,
+  };
+}
+
+export function isVendorPaymentRequestNumberFor({ requestNo, type, date }: { requestNo: string; type: string; date: string | Date }) {
+  const parsed = parseVendorPaymentRequestNumber(requestNo);
+  if (!parsed) return false;
   const { month, year } = toDateParts(date);
+  return parsed.category === normalizeVendorPaymentRequestCategory(type) && romanMonths.indexOf(parsed.romanMonth) === month && parsed.year === year;
+}
+
+export function generateVendorPaymentRequestNumber({ type, date, existingRows }: { type: string; date: string | Date; existingRows: Array<{ requestNo?: string; requestCategory?: string; requestDate?: string }> }) {
+  const normalizedType = normalizeVendorPaymentRequestCategory(type);
+  const { month, year } = toDateParts(date);
+  const romanMonth = getRomanMonth(month);
   const maxSeq = existingRows.reduce((max, row) => {
-    const rowType = normalizeRequestType(row.requestCategory || 'MEDIS');
-    const rowNo = row.requestNo || '';
-    const rowDate = row.requestDate || '';
-    if (!rowNo || rowType !== normalizedType) return max;
-    const [seqText, numType, , romanMonth, yearText] = rowNo.split('/');
-    if (!REQUEST_TYPES.includes((numType || '').toUpperCase() as VendorRequestType)) return max;
-    const rowParts = rowDate ? toDateParts(rowDate) : { month: romanMonths.indexOf(romanMonth), year: Number(yearText) };
-    if (rowParts.month !== month || rowParts.year !== year) return max;
-    const seq = Number(seqText);
-    return Number.isFinite(seq) ? Math.max(max, seq) : max;
+    const parsed = parseVendorPaymentRequestNumber(row.requestNo || '');
+    if (!parsed) return max;
+    const rowType = normalizeVendorPaymentRequestCategory(row.requestCategory || parsed.category);
+    if (rowType !== normalizedType || parsed.category !== normalizedType) return max;
+    if (parsed.romanMonth !== romanMonth || parsed.year !== year) return max;
+    return Math.max(max, parsed.sequence);
   }, 0);
-  return `${pad(maxSeq + 1, 3)}/${normalizedType}/PM-KEU/${getRomanMonth(month)}/${year}`;
+  return `${pad(maxSeq + 1, 3)}/${normalizedType}/PM-KEU/${romanMonth}/${year}`;
 }

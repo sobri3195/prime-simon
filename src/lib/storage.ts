@@ -1,5 +1,6 @@
 import type { AppData, AuditEntry } from './types';
 import { createSeedData } from './seed';
+import { generateVendorPaymentRequestNumber, isVendorPaymentRequestNumberFor } from './numbering';
 
 export const STORAGE_PREFIX = 'prime-finance-v1';
 export const appName = 'Klinik Utama Prime Mata';
@@ -62,6 +63,30 @@ export function readStorage<K extends StorageKey>(key: K): AppData[K] {
   return getStorageItem<AppData[K]>(key, seed as AppData[K]);
 }
 export function writeStorage<K extends StorageKey>(key: K, value: AppData[K]) { setStorageItem(key, value); const alias = exactStorageAliases[key]; if (alias) saveToStorage(alias, value); }
+
+function migrateDemoPaymentRequestNumbers() {
+  const paymentRequests = readStorage('payment-requests');
+  if (!paymentRequests.length) return;
+  const isDemoOnly = paymentRequests.every((request) => request.id.startsWith('req-') || request.description === 'Pengajuan dummy' || request.notes === 'Menunggu approval');
+  if (!isDemoOnly) return;
+
+  const ordered = [...paymentRequests].sort((a, b) => a.requestDate.localeCompare(b.requestDate) || a.id.localeCompare(b.id));
+  const regenerated: typeof paymentRequests = [];
+  const byId = new Map<string, typeof paymentRequests[number]>();
+
+  ordered.forEach((request) => {
+    const requestNo = generateVendorPaymentRequestNumber({ type: request.requestCategory, date: request.requestDate, existingRows: regenerated });
+    const nextRequest = { ...request, requestNo };
+    regenerated.push(nextRequest);
+    byId.set(request.id, nextRequest);
+  });
+
+  const next = paymentRequests.map((request) => byId.get(request.id) || request);
+  const hasDuplicate = new Set(paymentRequests.map((request) => request.requestNo)).size !== paymentRequests.length;
+  const hasMismatch = paymentRequests.some((request, index) => request.requestNo !== next[index].requestNo || !isVendorPaymentRequestNumberFor({ requestNo: request.requestNo, type: request.requestCategory, date: request.requestDate }));
+  if (hasDuplicate || hasMismatch) writeStorage('payment-requests', next);
+}
+
 export function seedIfEmpty() {
   const seed = createSeedData();
   storageKeys.forEach((k) => { if (localStorage.getItem(fullKey(k)) === null) writeStorage(k, seed[k] as never); });
@@ -79,11 +104,12 @@ export function seedIfEmpty() {
   if (localStorage.getItem('prime_finance_cost_centers') === null) saveToStorage('prime_finance_cost_centers', settings.costCenters.map((name, index) => ({ id: `cc-${index + 1}`, code: `CC-${String(index + 1).padStart(3, '0')}`, name, department: index % 2 ? 'Operasional' : 'Medis', monthlyBudget: 25000000 + index * 5000000, realization: 12000000 + index * 3250000, status: 'Aktif' })));
   if (localStorage.getItem('prime_finance_tax_rates') === null) saveToStorage('prime_finance_tax_rates', [{ id: 'tax-pph23', code: 'PPH23', name: 'PPh 23 Jasa', rate: 2, effectiveFrom: '2026-01-01', status: 'Aktif' }, { id: 'tax-pph21', code: 'PPH21', name: 'PPh 21 Vendor / Tenaga Ahli', rate: 2.5, effectiveFrom: '2026-01-01', status: 'Aktif' }, { id: 'tax-ppn', code: 'PPN11', name: 'PPN Keluaran', rate: 11, effectiveFrom: '2026-01-01', status: 'Aktif' }]);
   if (localStorage.getItem('prime_finance_service_categories') === null) saveToStorage('prime_finance_service_categories', settings.serviceCategories.map((name, index) => ({ id: `svc-${index + 1}`, code: `LYN-${String(index + 1).padStart(3, '0')}`, name, department: ['Rawat Jalan', 'Farmasi', 'Laboratorium', 'Optik', 'Operasi'][index % 5], defaultCoa: `4${index + 1}00 - Pendapatan ${name}`, status: 'Aktif' })));
+  migrateDemoPaymentRequestNumbers();
   localStorage.setItem(fullKey('seeded'), localStorage.getItem(fullKey('seeded')) || new Date().toISOString());
 }
 export const ensureSeedData = seedIfEmpty;
 export function clearAllAppData() { Object.keys(localStorage).filter(k => k.startsWith(`${STORAGE_PREFIX}:`)).forEach(k => localStorage.removeItem(k)); }
-export function resetDemoData() { clearAllAppData(); primeStorageKeys.forEach(removeFromStorage); seedIfEmpty(); addAudit('Settings', 'reset', 'demo-data', 'Reset demo data', 'Reset seluruh data ke demo seed'); }
+export function resetDemoData() { clearAllAppData(); primeStorageKeys.forEach(removeFromStorage); seedIfEmpty(); addAudit('Settings', 'reset', 'demo-data', 'Reset demo data', 'Reset seluruh data ke demo seed dengan sequence nomor pengajuan vendor per kategori'); }
 export function exportAllData() {
   const data: Partial<AppData> = {};
   storageKeys.forEach(k => ((data as any)[k] = readStorage(k)));
