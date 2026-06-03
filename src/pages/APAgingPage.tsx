@@ -135,16 +135,19 @@ export function APAgingPage({ rows }: { rows: APItem[] }) {
       </div>
 
       <DataTable
+        title={PAGE_NAME}
         rows={filteredRows}
         filename={baseFilename}
+        quickExportPageId="ap"
+        exportSheetName={PAGE_NAME}
         columns={[
-          { key: 'invoiceDate', header: 'Tgl Invoice', cell: (r) => formatDateID(r.invoiceDate) },
+          { key: 'invoiceDate', header: 'Tgl Invoice', cell: (r) => formatDateID(r.invoiceDate), exportAccessor: (r) => formatDateID(r.invoiceDate) },
           { key: 'invoiceNo', header: 'Invoice' },
           { key: 'vendorName', header: 'Vendor' },
-          { key: 'amount', header: 'Amount', cell: (r) => formatCurrency(r.amount) },
-          { key: 'outstandingAmount', header: 'Outstanding', cell: (r) => formatCurrency(r.outstandingAmount), total: (rs) => formatCurrency(rs.reduce((a, b) => a + (b as any).outstandingAmount, 0)) },
-          { key: 'aging', header: 'Aging', cell: (r: any) => `${r.agingDays} hari (${r.bucket})` },
-          { key: 'status', header: 'Status', cell: (r: any) => <Badge variant={r.status === 'Paid' ? 'green' : r.status === 'Overdue' ? 'red' : r.status === 'Partial' ? 'amber' : 'default'}>{r.status}</Badge> },
+          { key: 'amount', header: 'Amount', cell: (r) => formatCurrency(r.amount), exportAccessor: (r) => r.amount, isCurrency: true, align: 'right' },
+          { key: 'outstandingAmount', header: 'Outstanding', cell: (r) => formatCurrency(r.outstandingAmount), exportAccessor: (r) => r.outstandingAmount, isCurrency: true, align: 'right', total: (rs) => formatCurrency(rs.reduce((a, b) => a + (b as any).outstandingAmount, 0)) },
+          { key: 'aging', header: 'Aging', cell: (r: any) => `${r.agingDays} hari (${r.bucket})`, exportAccessor: (r: any) => `${r.agingDays} hari (${r.bucket})` },
+          { key: 'status', header: 'Status', cell: (r: any) => <Badge variant={r.status === 'Paid' ? 'green' : r.status === 'Overdue' ? 'red' : r.status === 'Partial' ? 'amber' : 'default'}>{r.status}</Badge>, exportAccessor: (r: any) => r.status },
         ]}
         description={`${APP_NAME} • ${MODULE_NAME} • ${PAGE_NAME}`}
         emptyMessage="Tidak ada data hutang pada periode ini."

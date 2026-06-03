@@ -1,4 +1,3 @@
-import { format } from 'date-fns';
 import { formatDate, safeString } from './format';
 
 export type ExportColumn<T> = {
@@ -19,11 +18,10 @@ type PreparedExport<T> = {
   footer?: (string | number)[];
 };
 
-const getTimestamp = () => format(new Date(), 'yyyyMMdd-HHmm');
 const withExtension = (filename: string, extension: string) => {
   if (new RegExp(`\\.${extension}$`, 'i').test(filename)) return filename;
-  const base = filename.replace(new RegExp(`\\.${extension}$`, 'i'), '');
-  return `${base}-${getTimestamp()}.${extension}`;
+  const base = filename.replace(/\.[a-z0-9]+$/i, '');
+  return `${base}.${extension}`;
 };
 
 function getValueByPath(row: unknown, key: string) {
@@ -147,9 +145,9 @@ function zip(files: Record<string, string>) {
   return new Blob([concat([...locals, centralDir, end])], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
-export function exportToExcel<T>(params: { filename: string; rows: T[]; columns: ExportColumn<T>[]; sheetName?: string; includeFooter?: boolean; meta?: Record<string, unknown> }): void {
+export function exportToExcel<T>(params: { filename: string; rows: T[]; columns: ExportColumn<T>[]; sheetName?: string; includeFooter?: boolean; meta?: Record<string, unknown>; metaRows?: (string | number)[][]; footerRows?: (string | number)[][] }): void {
   const prepared = prepareExportRows(params);
-  const metadataRows = params.meta ? [
+  const metadataRows = params.metaRows ?? (params.meta ? [
     ['App Name', safeString(params.meta.appName)],
     ['Module', safeString(params.meta.module)],
     ['Page', safeString(params.meta.page)],
@@ -158,29 +156,38 @@ export function exportToExcel<T>(params: { filename: string; rows: T[]; columns:
     ['Total Rows', safeString(params.meta.totalRows)],
     ['Total Amount', safeString(params.meta.totalAmount)],
     [],
-  ] : [];
-  const rows = [...metadataRows, prepared.headers, ...prepared.body, ...(prepared.footer ? [prepared.footer] : [])];
-  const htmlRows = rows.map((row, index) => `<tr>${row.map((cell) => `${index === metadataRows.length ? 'th' : 'td'}>${xmlEscape(cell)}</${index === metadataRows.length ? 'th' : 'td'}`).map((cell) => `<${cell}`).join('')}</tr>`).join('');
-  const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${xmlEscape(params.sheetName || 'Voucher')}</title></head><body><table>${htmlRows}</table></body></html>`;
-  downloadFile(withExtension(params.filename.replace(/\.xlsx$/i, '.xls'), 'xls'), html, 'application/vnd.ms-excel;charset=utf-8');
+  ] : []);
+  const rows = [...metadataRows, prepared.headers, ...prepared.body, ...(prepared.footer ? [prepared.footer] : []), ...(params.footerRows ?? [])];
+  const headerIndex = metadataRows.length;
+  const htmlRows = rows.map((row, index) => `<tr>${row.map((cell) => {
+    const tag = index === headerIndex ? 'th' : 'td';
+    const value = typeof cell === 'number' ? cell : xmlEscape(cell);
+    const type = typeof cell === 'number' ? ' style="mso-number-format:General"' : '';
+    return `<${tag}${type}>${value}</${tag}>`;
+  }).join('')}</tr>`).join('');
+  const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${xmlEscape(params.sheetName || 'Data')}</title></head><body><table>${htmlRows}</table></body></html>`;
+  downloadFile(withExtension(params.filename.replace(/\.xls$/i, '.xlsx'), 'xlsx'), html, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8');
 }
 
 function pdfEscape(value: unknown) { return safeString(value).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)'); }
 
-export function exportToPDF<T>(params: { filename: string; title?: string; subtitle?: string; rows: T[]; columns: ExportColumn<T>[]; includeFooter?: boolean; orientation?: 'portrait' | 'landscape' }): void {
+export function exportToPDF<T>(params: { filename: string; title?: string; subtitle?: string; rows: T[]; columns: ExportColumn<T>[]; includeFooter?: boolean; orientation?: 'portrait' | 'landscape'; summary?: { label: string; value: string | number }[] }): void {
   const prepared = prepareExportRows(params);
   const landscape = params.orientation ? params.orientation === 'landscape' : prepared.columns.length > 8;
   const width = landscape ? 842 : 595;
   const height = landscape ? 595 : 842;
   const maxLines = landscape ? 30 : 45;
   const allRows = [prepared.headers, ...prepared.body.map((row) => row.map(safeString)), ...(prepared.footer ? [prepared.footer] : [])];
+  const summaryLine = params.summary?.length ? params.summary.map((item) => `${item.label}: ${safeString(item.value)}`).join('  •  ') : '';
+  const tableStartY = summaryLine ? 104 : 86;
   const pages: string[] = [];
   for (let start = 1; start < allRows.length || start === 1; start += maxLines) {
     const pageRows = [allRows[0], ...allRows.slice(start, start + maxLines)];
     const lines = [`BT /F1 14 Tf 36 ${height - 36} Td (${pdfEscape(params.title || params.filename)}) Tj ET`, `BT /F1 8 Tf 36 ${height - 52} Td (${pdfEscape(params.subtitle || '')}) Tj ET`, `BT /F1 8 Tf 36 ${height - 66} Td (${pdfEscape(`Dicetak ${new Date().toLocaleString('id-ID')}`)}) Tj ET`];
+    if (summaryLine) lines.push(`BT /F1 7 Tf 36 ${height - 82} Td (${pdfEscape(summaryLine)}) Tj ET`);
     pageRows.forEach((row, r) => {
       const text = row.map((cell) => safeString(cell).replace(/\s+/g, ' ').slice(0, Math.max(8, Math.floor(120 / Math.max(1, prepared.columns.length))))).join(' | ');
-      lines.push(`BT /F1 ${r === 0 ? 7 : 6} Tf 36 ${height - 86 - r * 14} Td (${pdfEscape(text)}) Tj ET`);
+      lines.push(`BT /F1 ${r === 0 ? 7 : 6} Tf 36 ${height - tableStartY - r * 14} Td (${pdfEscape(text)}) Tj ET`);
     });
     pages.push(lines.join('\n'));
   }
@@ -219,10 +226,11 @@ export async function copyTableToClipboard<T>(params: { rows: T[]; columns: Expo
   }
 }
 
-export function printTable<T>(params: { title?: string; subtitle?: string; rows: T[]; columns: ExportColumn<T>[]; includeFooter?: boolean }): void {
+export function printTable<T>(params: { title?: string; subtitle?: string; rows: T[]; columns: ExportColumn<T>[]; includeFooter?: boolean; summary?: { label: string; value: string | number }[] }): void {
   const prepared = prepareExportRows(params);
   const rows = [prepared.headers, ...prepared.body, ...(prepared.footer ? [prepared.footer] : [])];
-  const html = `<!doctype html><html><head><title>${xmlEscape(params.title || 'Print')}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#111827}h1{font-size:20px;margin:0 0 4px}.meta{color:#64748b;margin-bottom:16px}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #cbd5e1;padding:6px;text-align:left}th,tfoot td{background:#f1f5f9;font-weight:700}</style></head><body><div style="font-size:12px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:.12em">Klinik Utama Prime Mata • Finance Operations</div><h1>${xmlEscape(params.title || '')}</h1><div class="meta">${xmlEscape(params.subtitle || '')}<br/>Periode aktif: Mei 2026<br/>Tanggal print: ${xmlEscape(new Date().toLocaleString('id-ID'))}</div><table><thead><tr>${prepared.headers.map((h) => `<th>${xmlEscape(h)}</th>`).join('')}</tr></thead><tbody>${prepared.body.map((row) => `<tr>${row.map((cell) => `<td>${xmlEscape(cell)}</td>`).join('')}</tr>`).join('')}</tbody>${prepared.footer ? `<tfoot><tr>${prepared.footer.map((cell) => `<td>${xmlEscape(cell)}</td>`).join('')}</tr></tfoot>` : ''}</table><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),300)}</script></body></html>`;
+  const summaryHtml = params.summary?.length ? `<div class="summary">${params.summary.map((item) => `<strong>${xmlEscape(item.label)}: ${xmlEscape(item.value)}</strong>`).join('')}</div>` : '';
+  const html = `<!doctype html><html><head><title>${xmlEscape(params.title || 'Print')}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#111827}h1{font-size:20px;margin:0 0 4px}.meta{color:#64748b;margin-bottom:16px}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #cbd5e1;padding:6px;text-align:left}th,tfoot td{background:#f1f5f9;font-weight:700}.summary{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px;font-size:12px}</style></head><body><div style="font-size:12px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:.12em">Klinik Utama Prime Mata • Finance Operations</div><h1>${xmlEscape(params.title || '')}</h1><div class="meta">${xmlEscape(params.subtitle || '')}<br/>Periode aktif: Mei 2026<br/>Tanggal print: ${xmlEscape(new Date().toLocaleString('id-ID'))}</div>${summaryHtml}<table><thead><tr>${prepared.headers.map((h) => `<th>${xmlEscape(h)}</th>`).join('')}</tr></thead><tbody>${prepared.body.map((row) => `<tr>${row.map((cell) => `<td>${xmlEscape(cell)}</td>`).join('')}</tr>`).join('')}</tbody>${prepared.footer ? `<tfoot><tr>${prepared.footer.map((cell) => `<td>${xmlEscape(cell)}</td>`).join('')}</tr></tfoot>` : ''}</table><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),300)}</script></body></html>`;
   const popup = window.open('', '_blank');
   if (!popup) return;
   popup.document.open();
@@ -244,7 +252,7 @@ export function printVoucherTable<T>(rows: T[], columns: ExportColumn<T>[], meta
   const header = prepared.headers.map((h) => `<th>${xmlEscape(h)}</th>`).join('');
   const body = prepared.body.map((row) => `<tr>${row.map((cell) => `<td>${xmlEscape(cell)}</td>`).join('')}</tr>`).join('');
   const footer = prepared.footer ? `<tfoot><tr>${prepared.footer.map((cell) => `<td>${xmlEscape(cell)}</td>`).join('')}</tr></tfoot>` : '';
-  const html = `<!doctype html><html><head><title>${xmlEscape(meta.title)}</title><style>@media print{@page{size:A4 portrait;margin:12mm}}body{font-family:Arial,sans-serif;margin:24px;color:#111827}.eyebrow{font-size:12px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:.12em}h1{font-size:20px;margin:4px 0}.meta{margin:0 0 16px;color:#64748b;font-size:12px}.summary{display:flex;gap:16px;margin-bottom:14px;font-size:12px}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #cbd5e1;padding:6px;text-align:left;vertical-align:top}th,tfoot td{background:#f1f5f9;font-weight:700}</style></head><body><div class="eyebrow">${xmlEscape(meta.appName)} • ${xmlEscape(meta.module)}</div><h1>${xmlEscape(meta.title)}</h1><p class="meta">Periode aktif: ${xmlEscape(meta.period)}<br/>Tanggal print: ${xmlEscape(new Date().toLocaleString('id-ID'))}</p><div class="summary"><strong>Total rows: ${xmlEscape(meta.totalRows)}</strong><strong>Total amount: ${xmlEscape(meta.totalAmount)}</strong></div><table><thead><tr>${header}</tr></thead><tbody>${body || `<tr><td colspan="${prepared.headers.length}">Data tidak ditemukan</td></tr>`}</tbody>${footer}</table><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),300)}</script></body></html>`;
+  const html = `<!doctype html><html><head><title>${xmlEscape(meta.title)}</title><style>@media print{@page{size:A4 portrait;margin:12mm}}body{font-family:Arial,sans-serif;margin:24px;color:#111827}.eyebrow{font-size:12px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:.12em}h1{font-size:20px;margin:4px 0}.meta{margin:0 0 16px;color:#64748b;font-size:12px}.summary{display:flex;gap:16px;margin-bottom:14px;font-size:12px}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #cbd5e1;padding:6px;text-align:left;vertical-align:top}th,tfoot td{background:#f1f5f9;font-weight:700}.summary{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px;font-size:12px}</style></head><body><div class="eyebrow">${xmlEscape(meta.appName)} • ${xmlEscape(meta.module)}</div><h1>${xmlEscape(meta.title)}</h1><p class="meta">Periode aktif: ${xmlEscape(meta.period)}<br/>Tanggal print: ${xmlEscape(new Date().toLocaleString('id-ID'))}</p><div class="summary"><strong>Total rows: ${xmlEscape(meta.totalRows)}</strong><strong>Total amount: ${xmlEscape(meta.totalAmount)}</strong></div><table><thead><tr>${header}</tr></thead><tbody>${body || `<tr><td colspan="${prepared.headers.length}">Data tidak ditemukan</td></tr>`}</tbody>${footer}</table><script>window.onload=()=>{window.print();setTimeout(()=>window.close(),300)}</script></body></html>`;
   const popup = window.open('', '_blank');
   if (!popup) return;
   popup.document.open();

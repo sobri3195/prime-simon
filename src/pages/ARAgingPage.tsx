@@ -9,6 +9,9 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { KpiCard } from '@/components/common/KpiCard';
 import { PageHeader } from '@/components/common/PageHeader';
 import { formatRupiah } from '@/lib/format';
+import { addAudit } from '@/lib/storage';
+import { useQuickExport } from '@/lib/exportRegistry';
+import { toast } from '@/lib/toast';
 import type { ARItem, Payer } from '@/lib/types';
 
 type AgingBucket = '0-30' | '31-60' | '>60';
@@ -21,6 +24,7 @@ type RowWithAging = ARItem & {
 };
 
 const BUCKET_COLORS: Record<AgingBucket, string> = { '0-30': '#22c55e', '31-60': '#f59e0b', '>60': '#ef4444' };
+const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'all';
 
 const toDateOnly = (date: Date) => date.toISOString().slice(0, 10);
 const isValidDateString = (value?: string) => !!value && !Number.isNaN(new Date(value).getTime());
@@ -104,6 +108,32 @@ export function ARAgingPage({ rows, payers }: { rows: ARItem[]; payers: Payer[] 
     setPayerFilter('ALL');
   };
 
+  const exportFilename = React.useMemo(() => `aging-piutang-${from}-sd-${to}-${slugify(payerFilter)}`, [from, to, payerFilter]);
+  const exportSubtitle = React.useMemo(() => `Periode ${from} s/d ${to} • Payer: ${payerFilter}`, [from, to, payerFilter]);
+  const exportSummary = React.useMemo(() => [
+    { label: 'Total Piutang', value: formatRupiah(totals.total) },
+    { label: 'Piutang 0–30 Hari', value: formatRupiah(totals['0-30']) },
+    { label: 'Piutang 31–60 Hari', value: formatRupiah(totals['31-60']) },
+    { label: 'Piutang >60 Hari', value: formatRupiah(totals['>60']) },
+    { label: 'Jumlah Invoice', value: totals.invoiceCount },
+    { label: 'Payer Aktif', value: totals.activePayers },
+  ], [totals]);
+  const exportMetaRows = React.useMemo<(string | number)[][]>(() => [
+    ['Klinik', 'Klinik Utama Prime Mata'],
+    ['Periode', `${from} s/d ${to}`],
+    ['Payer', payerFilter],
+    ['Exported At', new Date().toLocaleString('id-ID')],
+    [],
+  ], [from, to, payerFilter]);
+  const exportFooterRows = React.useMemo<(string | number)[][]>(() => [['Total Outstanding', '', '', '', '', totals.total, '', '', '']], [totals.total]);
+  const auditExport = React.useCallback((type: string, rowCount: number) => {
+    addAudit('Aging Piutang', 'export', 'aging-piutang', 'Export Aging Piutang', `Export ${rowCount} baris periode ${from} s/d ${to}, payer ${payerFilter} (${type})`);
+  }, [from, to, payerFilter]);
+
+  useQuickExport(filteredRows.length === 0 ? 'ar' : undefined, React.useCallback(() => {
+    toast.error('Belum ada data untuk diekspor.');
+  }, []));
+
   return (
     <div>
       <PageHeader
@@ -174,17 +204,29 @@ export function ARAgingPage({ rows, payers }: { rows: ARItem[]; payers: Payer[] 
 
           <div className="mt-4">
             <DataTable
+              title="Daftar Aging Piutang"
+              description={exportSubtitle}
               rows={filteredRows}
+              filename={exportFilename}
+              quickExportPageId="ar"
+              exportSheetName="Aging Piutang"
+              exportMetaRows={exportMetaRows}
+              exportFooterRows={exportFooterRows}
+              exportPdfTitle="Aging Piutang"
+              exportPdfSubtitle={exportSubtitle}
+              exportPdfSummary={exportSummary}
+              exportOrientation="landscape"
+              onExport={auditExport}
               columns={[
-                { key: 'service', header: 'Tanggal Layanan', cell: (r) => r.serviceDate || r.invoiceDate || '-' },
-                { key: 'invoice', header: 'Invoice', cell: (r) => r.invoiceNo },
-                { key: 'payer', header: 'Payer', cell: (r) => r.payerName },
-                { key: 'patient', header: 'Pasien', cell: (r) => r.patientName },
-                { key: 'amount', header: 'Amount', cell: (r) => formatRupiah(r.amount) },
-                { key: 'out', header: 'Outstanding', cell: (r) => formatRupiah(r.outstandingAmount), total: (rs) => formatRupiah(rs.reduce((a, b) => a + b.outstandingAmount, 0)) },
-                { key: 'aging', header: 'Umur Piutang', cell: (r) => `${r.agingDays} hari` },
-                { key: 'bucket', header: 'Bucket', cell: (r) => r.bucket },
-                { key: 'status', header: 'Status', cell: (r) => <Badge>{r.statusLabel}</Badge> },
+                { key: 'service', header: 'Tanggal Layanan', cell: (r) => r.serviceDate || r.invoiceDate || '-', exportAccessor: (r) => r.serviceDate || r.invoiceDate || '-' },
+                { key: 'invoice', header: 'Invoice', cell: (r) => r.invoiceNo, exportAccessor: (r) => r.invoiceNo },
+                { key: 'payer', header: 'Payer', cell: (r) => r.payerName, exportAccessor: (r) => r.payerName },
+                { key: 'patient', header: 'Pasien', cell: (r) => r.patientName, exportAccessor: (r) => r.patientName },
+                { key: 'amount', header: 'Amount', cell: (r) => formatRupiah(r.amount), exportAccessor: (r) => r.amount, isCurrency: true, align: 'right' },
+                { key: 'out', header: 'Outstanding', cell: (r) => formatRupiah(r.outstandingAmount), exportAccessor: (r) => r.outstandingAmount, isCurrency: true, align: 'right', total: (rs) => formatRupiah(rs.reduce((a, b) => a + b.outstandingAmount, 0)), exportFooter: (rs) => rs.reduce((a, b) => a + b.outstandingAmount, 0) },
+                { key: 'aging', header: 'Umur Piutang', cell: (r) => `${r.agingDays} hari`, exportAccessor: (r) => r.agingDays, isNumber: true, align: 'right' },
+                { key: 'bucket', header: 'Bucket', cell: (r) => r.bucket, exportAccessor: (r) => r.bucket },
+                { key: 'status', header: 'Status', cell: (r) => <Badge>{r.statusLabel}</Badge>, exportAccessor: (r) => r.statusLabel },
               ]}
             />
             <p className="mt-2 text-sm text-slate-600">Jumlah baris: <b>{filteredRows.length}</b> • Total outstanding: <b>{formatRupiah(totals.total)}</b></p>
